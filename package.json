@@ -1,0 +1,78 @@
+{
+  "name": "langfuse-admin-api",
+  "version": "1.0.0",
+  "description": "API de administración para Langfuse",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write '**/*.{js,json,md}'",
+    "prepare": "husky install",
+    "docker:build": "docker build -t langfuse-admin-api .",
+    "docker:run": "docker run -p 3100:3100 langfuse-admin-api"
+  },
+  "keywords": [
+    "langfuse",
+    "admin",
+    "api",
+    "node",
+    "express"
+  ],
+  "author": "Langfuse Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "compression": "^1.7.4",
+    "cors": "^2.8.5",
+    "crypto": "^1.0.1",
+    "cuid": "^2.1.8",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.1.5",
+    "helmet": "^7.0.0",
+    "joi": "^17.11.0",
+    "morgan": "^1.10.0",
+    "nanoid": "^3.3.6",
+    "pg": "^8.14.0",
+    "swagger-ui-express": "^5.0.0",
+    "uuid": "^11.1.0",
+    "winston": "^3.11.0",
+    "yamljs": "^0.3.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.56.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-jest": "^27.9.0",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-prettier": "^5.1.3",
+    "husky": "^9.0.11",
+    "jest": "^29.7.0",
+    "lint-staged": "^15.2.0",
+    "nodemon": "^3.0.3",
+    "prettier": "^3.2.5",
+    "supertest": "^6.3.4"
+  },
+  "lint-staged": {
+    "*.js": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md}": [
+      "prettier --write"
+    ]
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "coveragePathIgnorePatterns": [
+      "/node_modules/",
+      "/tests/"
+    ]
+  }
+}

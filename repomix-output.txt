@@ -1,0 +1,4148 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+================================================================
+File Summary
+================================================================
+
+Purpose:
+--------
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+
+File Format:
+------------
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Multiple file entries, each consisting of:
+  a. A separator line (================)
+  b. The file path (File: path/to/file)
+  c. Another separator line
+  d. The full contents of the file
+  e. A blank line
+
+Usage Guidelines:
+-----------------
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+
+Notes:
+------
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+
+Additional Info:
+----------------
+
+================================================================
+Directory Structure
+================================================================
+docs/
+  openapi.yaml
+src/
+  config/
+    database.js
+    index.js
+  controllers/
+    api-keys.controller.js
+    health.controller.js
+    organizations.controller.js
+    projects.controller.js
+    users.controller.js
+  middleware/
+    auth.middleware.js
+    error.middleware.js
+    request.middleware.js
+    validation.middleware.js
+  routes/
+    api-keys.routes.js
+    health.routes.js
+    index.js
+    organizations.routes.js
+    projects.routes.js
+    users.routes.js
+  services/
+    api-keys.service.js
+    database.service.js
+    organizations.service.js
+    projects.service.js
+  utils/
+    errors.js
+    id-generator.js
+    logger.js
+  app.js
+.dockerignore
+.env.example
+.eslintrc.js
+Dockerfile
+index.js
+package.json
+README.md
+
+================================================================
+Files
+================================================================
+
+================
+File: docs/openapi.yaml
+================
+openapi: 3.0.3
+info:
+  title: Langfuse Admin API
+  description: |
+    API de administración para Langfuse que permite gestionar organizaciones, proyectos y API keys.
+    Esta API está diseñada para uso administrativo con autenticación mediante API key.
+  version: 1.0.0
+  contact:
+    name: Langfuse Team
+    url: https://langfuse.com
+servers:
+  - url: http://localhost:3100/api
+    description: Servidor local de desarrollo
+  - url: https://admin-api.langfuse.com/api
+    description: Servidor de producción
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+  
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Código de error
+        message:
+          type: string
+          description: Mensaje de error
+        details:
+          type: object
+          description: Detalles adicionales del error (opcional)
+    
+    Organization:
+      type: object
+      properties:
+        id:
+          type: string
+          description: ID único de la organización
+        name:
+          type: string
+          description: Nombre de la organización
+        created_at:
+          type: string
+          format: date-time
+          description: Fecha de creación
+        updated_at:
+          type: string
+          format: date-time
+          description: Fecha de última actualización
+    
+    OrganizationMember:
+      type: object
+      properties:
+        id:
+          type: string
+          description: ID único de la membresía
+        user_id:
+          type: string
+          description: ID del usuario
+        role:
+          type: string
+          enum: [OWNER, ADMIN, VIEWER, NONE]
+          description: Rol del usuario en la organización
+        created_at:
+          type: string
+          format: date-time
+          description: Fecha de creación
+        updated_at:
+          type: string
+          format: date-time
+          description: Fecha de última actualización
+        name:
+          type: string
+          description: Nombre del usuario
+        email:
+          type: string
+          format: email
+          description: Email del usuario
+        image:
+          type: string
+          description: URL de imagen del usuario
+    
+    Project:
+      type: object
+      properties:
+        id:
+          type: string
+          description: ID único del proyecto
+        name:
+          type: string
+          description: Nombre del proyecto
+        org_id:
+          type: string
+          description: ID de la organización propietaria
+        created_at:
+          type: string
+          format: date-time
+          description: Fecha de creación
+        updated_at:
+          type: string
+          format: date-time
+          description: Fecha de última actualización
+    
+    ApiKey:
+      type: object
+      properties:
+        id:
+          type: string
+          description: ID único de la API key
+        created_at:
+          type: string
+          format: date-time
+          description: Fecha de creación
+        public_key:
+          type: string
+          description: Clave pública (para autenticación)
+        display_secret_key:
+          type: string
+          description: Versión truncada de la clave secreta
+        last_used_at:
+          type: string
+          format: date-time
+          description: Fecha de último uso
+        note:
+          type: string
+          description: Nota descriptiva (opcional)
+    
+    NewApiKey:
+      allOf:
+        - $ref: '#/components/schemas/ApiKey'
+        - type: object
+          properties:
+            secretKey:
+              type: string
+              description: Clave secreta completa (solo se muestra una vez)
+    
+    NewProject:
+      allOf:
+        - $ref: '#/components/schemas/Project'
+        - type: object
+          properties:
+            apiKeys:
+              type: object
+              properties:
+                publicKey:
+                  type: string
+                  description: Clave pública de API
+                secretKey:
+                  type: string
+                  description: Clave secreta de API (solo se muestra una vez)
+    
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ok, error]
+          description: Estado general del servicio
+        timestamp:
+          type: string
+          format: date-time
+          description: Fecha y hora de la verificación
+        service:
+          type: string
+          description: Nombre del servicio
+        version:
+          type: string
+          description: Versión del servicio
+        db:
+          type: object
+          properties:
+            status:
+              type: string
+              enum: [connected, error]
+              description: Estado de la conexión a la base de datos
+            time:
+              type: string
+              format: date-time
+              description: Fecha y hora del servidor de base de datos
+
+paths:
+  /health:
+    get:
+      summary: Verificar estado del servicio
+      description: Verifica el estado del servicio y la conexión a la base de datos
+      operationId: checkHealth
+      tags: [Monitoring]
+      responses:
+        '200':
+          description: Servicio funcionando correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+        '503':
+          description: Servicio no disponible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /health/db:
+    get:
+      summary: Verificar estado de la base de datos
+      description: Verifica solo el estado de la conexión a la base de datos
+      operationId: checkDatabaseHealth
+      tags: [Monitoring]
+      responses:
+        '200':
+          description: Base de datos funcionando correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+                  time:
+                    type: string
+                    format: date-time
+                  responseTime:
+                    type: string
+        '503':
+          description: Error de conexión a la base de datos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /organizations:
+    get:
+      summary: Listar organizaciones
+      description: Obtiene todas las organizaciones
+      operationId: getAllOrganizations
+      tags: [Organizations]
+      security:
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Lista de organizaciones
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Organization'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    post:
+      summary: Crear organización
+      description: Crea una nueva organización
+      operationId: createOrganization
+      tags: [Organizations]
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - userId
+              properties:
+                name:
+                  type: string
+                  description: Nombre de la organización
+                userId:
+                  type: string
+                  description: ID del usuario que será propietario de la organización
+      responses:
+        '201':
+          description: Organización creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        '400':
+          description: Datos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /organizations/{id}:
+    get:
+      summary: Obtener organización
+      description: Obtiene una organización por ID
+      operationId: getOrganizationById
+      tags: [Organizations]
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID de la organización
+      responses:
+        '200':
+          description: Datos de la organización
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        '404':
+          description: Organización no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    put:
+      summary: Actualizar organización
+      description: Actualiza una organización existente
+      operationId: updateOrganization
+      tags: [Organizations]
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID de la organización
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  description: Nuevo nombre de la organización
+      responses:
+        '200':
+          description: Organización actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        '400':
+          description: Datos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Organización no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /organizations/{id}/members:
+    get:
+      summary: Listar miembros
+      description: Obtiene los miembros de una organización
+      operationId: getOrganizationMembers
+      tags: [Organization Members]
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID de la organización
+      responses:
+        '200':
+          description: Lista de miembros
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OrganizationMember'
+        '404':
+          description: Organización no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    post:
+      summary: Añadir miembro
+      description: Añade un usuario a una organización
+      operationId: addOrganizationMember
+      tags: [Organization Members]
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID de la organización
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId
+              properties:
+                userId:
+                  type: string
+                  description: ID del usuario a añadir
+                role:
+                  type: string
+                  enum: [OWNER, ADMIN, VIEWER, NONE]
+                  default: VIEWER
+                  description: Rol del usuario en la organización
+      responses:
+        '201':
+          description: Usuario añadido a la organización
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationMember'
+        '400':
+          description: Datos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Organización o usuario no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: El usuario ya es miembro de esta organización
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Sin permisos suficientes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /organizations/{orgId}/members/{userId}:
+    put:
+      summary: Actualizar miembro
+      description: Actualiza el rol de un miembro en la organización
+      operationId: updateOrganizationMember
+      tags: [Organization Members]
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID de la organización
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID del usuario
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - role
+              properties:
+                role:
+                  type: string
+                  enum: [OWNER, ADMIN, VIEWER, NONE]
+                  description: Nuevo rol del usuario
+      responses:
+        '200':
+          description: Rol actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationMember'
+        '400':
+          description: Datos inválidos o intento de cambiar el rol del último propietario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Membresía no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Sin permisos suficientes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    delete:
+      summary: Eliminar miembro
+      description: Elimina un miembro de la organización
+      operationId: removeOrganizationMember
+      tags: [Organization Members]
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID de la organización
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID del usuario
+      responses:
+        '200':
+          description: Miembro eliminado correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Mensaje de confirmación
+        '400':
+          description: No se puede eliminar al último propietario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Membresía no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Sin permisos suficientes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /projects:
+    get:
+      summary: Listar proyectos
+      description: Obtiene todos los proyectos (filtrable por organización)
+      operationId: getAllProjects
+      tags: [Projects]
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      parameters:
+        - name: orgId
+          in: query
+          schema:
+            type: string
+          description: ID de la organización para filtrar (opcional)
+      responses:
+        '200':
+          description: Lista de proyectos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Project'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    post:
+      summary: Crear proyecto
+      description: Crea un nuevo proyecto y genera API keys
+      operationId: createProject
+      tags: [Projects]
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - orgId
+              properties:
+                name:
+                  type: string
+                  description: Nombre del proyecto
+                orgId:
+                  type: string
+                  description: ID de la organización
+      responses:
+        '201':
+          description: Proyecto creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NewProject'
+        '400':
+          description: Datos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Organización no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Sin permisos suficientes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /projects/{id}:
+    get:
+      summary: Obtener proyecto
+      description: Obtiene un proyecto por ID
+      operationId: getProjectById
+      tags: [Projects]
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID del proyecto
+      responses:
+        '200':
+          description: Datos del proyecto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '404':
+          description: Proyecto no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    put:
+      summary: Actualizar proyecto
+      description: Actualiza un proyecto existente
+      operationId: updateProject
+      tags: [Projects]
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID del proyecto
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  description: Nuevo nombre del proyecto
+      responses:
+        '200':
+          description: Proyecto actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '400':
+          description: Datos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Proyecto no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Sin permisos suficientes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    delete:
+      summary: Eliminar proyecto
+      description: Marca un proyecto como eliminado (soft delete)
+      operationId: deleteProject
+      tags: [Projects]
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID del proyecto
+      responses:
+        '200':
+          description: Proyecto eliminado correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Mensaje de confirmación
+        '404':
+          description: Proyecto no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Sin permisos suficientes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /projects/{id}/api-keys:
+    get:
+      summary: Listar API keys
+      description: Obtiene las API keys de un proyecto
+      operationId: getProjectApiKeys
+      tags: [API Keys]
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID del proyecto
+      responses:
+        '200':
+          description: Lista de API keys
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ApiKey'
+        '404':
+          description: Proyecto no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Sin permisos suficientes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    post:
+      summary: Crear API key
+      description: Crea una nueva API key para el proyecto
+      operationId: createApiKey
+      tags: [API Keys]
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID del proyecto
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note:
+                  type: string
+                  description: Descripción opcional
+      responses:
+        '201':
+          description: API key creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NewApiKey'
+        '404':
+          description: Proyecto no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Sin permisos suficientes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /api-keys/{id}:
+    delete:
+      summary: Eliminar API key
+      description: Elimina una API key
+      operationId: deleteApiKey
+      tags: [API Keys]
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID de la API key
+      responses:
+        '200':
+          description: API key eliminada correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Mensaje de confirmación
+        '404':
+          description: API key no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Sin permisos suficientes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+tags:
+  - name: Organizations
+    description: Gestión de organizaciones
+  - name: Organization Members
+    description: Gestión de miembros de organizaciones
+  - name: Projects
+    description: Gestión de proyectos
+  - name: API Keys
+    description: Gestión de API keys
+  - name: Monitoring
+    description: Endpoints de monitoreo y salud del servicio
+
+externalDocs:
+  description: Documentación adicional
+  url: https://docs.langfuse.com
+
+================
+File: src/config/database.js
+================
+'use strict';
+
+/**
+ * Configuración de la base de datos
+ * Separa los parámetros para evitar duplicación y facilitar cambios
+ */
+
+module.exports = {
+  host: process.env.DB_HOST || 'localhost',
+  port: parseInt(process.env.DB_PORT || '5432'),
+  database: process.env.DB_NAME || 'postgres',
+  user: process.env.DB_USER || 'postgres',
+  password: process.env.DB_PASS || 'postgres',
+  ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+  
+  // Configuración del pool de conexiones
+  pool: {
+    min: parseInt(process.env.DB_POOL_MIN || '2'),
+    max: parseInt(process.env.DB_POOL_MAX || '10'),
+    idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT || '30000'),
+    acquireTimeoutMillis: parseInt(process.env.DB_ACQUIRE_TIMEOUT || '30000'),
+  },
+  
+  // Opciones para migraciones
+  migrations: {
+    directory: './migrations',
+    tableName: 'knex_migrations',
+  },
+};
+
+================
+File: src/config/index.js
+================
+'use strict';
+
+/**
+ * Configuración centralizada de la aplicación
+ * Facilita la gestión de variables de entorno y valores por defecto
+ */
+
+// Importar configuración específica de componentes
+const database = require('./database');
+
+// Normalización de variables de entorno
+const env = (key, defaultValue = undefined) => {
+  const value = process.env[key];
+  if (value === undefined) {
+    if (defaultValue === undefined) {
+      throw new Error(`Variable de entorno ${key} no definida`);
+    }
+    return defaultValue;
+  }
+  return value;
+};
+
+// Normalización de variables booleanas
+const boolEnv = (key, defaultValue = undefined) => {
+  const value = env(key, defaultValue);
+  return value === 'true' || value === '1' || value === 'yes';
+};
+
+// Normalización de variables numéricas
+const numEnv = (key, defaultValue = undefined) => {
+  const value = env(key, defaultValue);
+  return Number(value);
+};
+
+// Configuración general de la aplicación
+const config = {
+  // Entorno
+  nodeEnv: env('NODE_ENV', 'development'),
+  isProduction: env('NODE_ENV', 'development') === 'production',
+  isDevelopment: env('NODE_ENV', 'development') === 'development',
+  isTest: env('NODE_ENV', 'development') === 'test',
+
+  // Servidor HTTP
+  port: numEnv('PORT', 3100),
+  host: env('HOST', '0.0.0.0'),
+  
+  // Seguridad
+  apiKey: env('API_KEY', 'admin-secret-key'),
+  enableApiKeyAuth: boolEnv('ENABLE_API_KEY_AUTH', true),
+  
+  // Logging
+  logLevel: env('LOG_LEVEL', 'info'),
+  enableRequestLogging: boolEnv('ENABLE_REQUEST_LOGGING', true),
+
+  // CORS
+  corsOrigin: env('CORS_ORIGIN', '*'),
+  
+  // Rate limiting
+  rateLimit: {
+    windowMs: numEnv('RATE_LIMIT_WINDOW_MS', 15 * 60 * 1000), // 15 minutos
+    max: numEnv('RATE_LIMIT_MAX', 100), // Máximo de solicitudes por IP
+  },
+  
+  // Documentación
+  enableDocs: boolEnv('ENABLE_DOCS', true),
+
+  // Base de datos
+  db: database,
+};
+
+module.exports = config;
+
+================
+File: src/controllers/api-keys.controller.js
+================
+'use strict';
+
+const { asyncHandler } = require('../middleware/error.middleware');
+const { NotFoundError } = require('../utils/errors');
+const apiKeysService = require('../services/api-keys.service');
+const { createContextLogger } = require('../utils/logger');
+
+// Logger contextual para este controlador
+const logger = createContextLogger('api-keys-controller');
+
+/**
+ * @route GET /api/projects/:id/api-keys
+ * @description Listar todas las API keys de un proyecto
+ */
+const getProjectApiKeys = asyncHandler(async (req, res) => {
+  const { id: projectId } = req.params;
+  logger.info(`Obteniendo API keys para proyecto: ${projectId}`);
+  
+  const apiKeys = await apiKeysService.getByProject(projectId);
+  
+  res.json(apiKeys);
+});
+
+/**
+ * @route GET /api/api-keys/:id
+ * @description Obtener detalles de una API key
+ */
+const getApiKeyById = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  logger.info(`Obteniendo detalles de API key: ${id}`);
+  
+  const apiKey = await apiKeysService.getById(id);
+  
+  res.json(apiKey);
+});
+
+/**
+ * @route POST /api/projects/:id/api-keys
+ * @description Crear una nueva API key para un proyecto
+ */
+const createApiKey = asyncHandler(async (req, res) => {
+  const { id: projectId } = req.params;
+  const { note } = req.body;
+  logger.info(`Creando nueva API key para proyecto: ${projectId}`);
+  
+  const newApiKey = await apiKeysService.create(projectId, { note });
+  
+  res.status(201).json(newApiKey);
+});
+
+/**
+ * @route POST /api/api-keys/:id/regenerate
+ * @description Regenerar una API key existente
+ */
+const regenerateApiKey = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  logger.info(`Regenerando API key: ${id}`);
+  
+  const regeneratedApiKey = await apiKeysService.regenerate(id);
+  
+  res.json(regeneratedApiKey);
+});
+
+/**
+ * @route DELETE /api/api-keys/:id
+ * @description Eliminar una API key
+ */
+const deleteApiKey = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  logger.info(`Eliminando API key: ${id}`);
+  
+  await apiKeysService.delete(id);
+  
+  res.json({ message: 'API key eliminada correctamente' });
+});
+
+module.exports = {
+  getProjectApiKeys,
+  getApiKeyById,
+  createApiKey,
+  deleteApiKey,
+  regenerateApiKey
+};
+
+================
+File: src/controllers/health.controller.js
+================
+'use strict';
+
+const { asyncHandler } = require('../middleware/error.middleware');
+const { db } = require('../services/database.service');
+const { createContextLogger } = require('../utils/logger');
+const packageInfo = require('../../package.json');
+
+// Logger contextual para este controlador
+const logger = createContextLogger('health-controller');
+
+/**
+ * @route GET /api/health
+ * @description Verificar estado del servicio y conexión a la base de datos
+ */
+const checkHealth = asyncHandler(async (req, res) => {
+  logger.debug('Verificando estado del servicio');
+  
+  // Estado general del servicio
+  const healthCheck = {
+    status: 'ok',
+    timestamp: new Date(),
+    uptime: Math.floor(process.uptime()),
+    service: packageInfo.name,
+    version: packageInfo.version,
+    environment: process.env.NODE_ENV || 'development',
+    memory: process.memoryUsage(),
+  };
+  
+  // Verificar base de datos
+  try {
+    const dbResult = await db.query('SELECT NOW() as time');
+    healthCheck.db = {
+      status: 'connected',
+      time: dbResult[0].time,
+    };
+  } catch (error) {
+    logger.error('Error al verificar base de datos:', error);
+    healthCheck.db = {
+      status: 'error',
+      error: process.env.NODE_ENV === 'production' 
+        ? 'Error de conexión' 
+        : error.message,
+    };
+    healthCheck.status = 'error';
+    
+    // En caso de error en BD, respondemos con código 503
+    return res.status(503).json(healthCheck);
+  }
+  
+  // Agregar información de sistema (no exponer en producción)
+  if (process.env.NODE_ENV !== 'production') {
+    healthCheck.system = {
+      nodeVersion: process.version,
+      platform: process.platform,
+      cpuUsage: process.cpuUsage(),
+    };
+  }
+  
+  // Responder con estado completo
+  res.json(healthCheck);
+});
+
+/**
+ * @route GET /api/health/db
+ * @description Verificar solo el estado de la base de datos
+ */
+const checkDatabaseHealth = asyncHandler(async (req, res) => {
+  logger.debug('Verificando estado de la base de datos');
+  
+  try {
+    const start = Date.now();
+    const dbResult = await db.query('SELECT NOW() as time');
+    const duration = Date.now() - start;
+    
+    res.json({
+      status: 'ok',
+      time: dbResult[0].time,
+      responseTime: `${duration}ms`,
+    });
+  } catch (error) {
+    logger.error('Error al verificar base de datos:', error);
+    
+    res.status(503).json({
+      status: 'error',
+      message: 'Error de conexión a la base de datos',
+      error: process.env.NODE_ENV === 'production' ? undefined : error.message,
+    });
+  }
+});
+
+module.exports = {
+  checkHealth,
+  checkDatabaseHealth
+};
+
+================
+File: src/controllers/organizations.controller.js
+================
+'use strict';
+
+const { asyncHandler } = require('../middleware/error.middleware');
+const { NotFoundError } = require('../utils/errors');
+const organizationsService = require('../services/organizations.service');
+const { createContextLogger } = require('../utils/logger');
+
+// Logger contextual para este controlador
+const logger = createContextLogger('organizations-controller');
+
+/**
+ * @route GET /api/organizations
+ * @description Listar todas las organizaciones
+ */
+const getAllOrganizations = asyncHandler(async (req, res) => {
+  logger.info('Obteniendo lista de organizaciones');
+  
+  const organizations = await organizationsService.getAll();
+  
+  res.json(organizations);
+});
+
+/**
+ * @route GET /api/organizations/:id
+ * @description Obtener una organización por ID
+ */
+const getOrganizationById = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  logger.info(`Obteniendo organización con ID: ${id}`);
+  
+  const organization = await organizationsService.getById(id);
+  
+  if (!organization) {
+    throw new NotFoundError('Organización');
+  }
+  
+  res.json(organization);
+});
+
+/**
+ * @route POST /api/organizations
+ * @description Crear una nueva organización con un usuario propietario
+ */
+const createOrganization = asyncHandler(async (req, res) => {
+  const { name, userId } = req.body;
+  logger.info(`Creando nueva organización: ${name} con propietario: ${userId}`);
+  
+  const newOrganization = await organizationsService.create({ name, userId });
+  
+  res.status(201).json(newOrganization);
+});
+
+/**
+ * @route PUT /api/organizations/:id
+ * @description Actualizar una organización existente
+ */
+const updateOrganization = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { name } = req.body;
+  logger.info(`Actualizando organización con ID: ${id}`);
+  
+  const updatedOrganization = await organizationsService.update(id, { name });
+  
+  if (!updatedOrganization) {
+    throw new NotFoundError('Organización');
+  }
+  
+  res.json(updatedOrganization);
+});
+
+/**
+ * @route GET /api/organizations/:id/members
+ * @description Obtener miembros de una organización
+ */
+const getOrganizationMembers = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  logger.info(`Obteniendo miembros de organización con ID: ${id}`);
+  
+  const members = await organizationsService.getMembers(id);
+  
+  res.json(members);
+});
+
+/**
+ * @route POST /api/organizations/:id/members
+ * @description Añadir un usuario a una organización
+ */
+const addOrganizationMember = asyncHandler(async (req, res) => {
+  const { id: orgId } = req.params;
+  const { userId, role = 'VIEWER' } = req.body;
+  logger.info(`Añadiendo usuario ${userId} a organización ${orgId} con rol ${role}`);
+  
+  const member = await organizationsService.addMember(orgId, userId, role);
+  
+  res.status(201).json(member);
+});
+
+/**
+ * @route PUT /api/organizations/:orgId/members/:userId
+ * @description Actualizar rol de un miembro en la organización
+ */
+const updateOrganizationMember = asyncHandler(async (req, res) => {
+  const { orgId, userId } = req.params;
+  const { role } = req.body;
+  logger.info(`Actualizando rol de usuario ${userId} en organización ${orgId} a ${role}`);
+  
+  const member = await organizationsService.updateMember(orgId, userId, role);
+  
+  res.json(member);
+});
+
+/**
+ * @route DELETE /api/organizations/:orgId/members/:userId
+ * @description Eliminar un miembro de la organización
+ */
+const removeOrganizationMember = asyncHandler(async (req, res) => {
+  const { orgId, userId } = req.params;
+  logger.info(`Eliminando usuario ${userId} de organización ${orgId}`);
+  
+  await organizationsService.removeMember(orgId, userId);
+  
+  res.json({ message: 'Miembro eliminado correctamente' });
+});
+
+module.exports = {
+  getAllOrganizations,
+  getOrganizationById,
+  createOrganization,
+  updateOrganization,
+  getOrganizationMembers,
+  addOrganizationMember,
+  updateOrganizationMember,
+  removeOrganizationMember
+};
+
+================
+File: src/controllers/projects.controller.js
+================
+'use strict';
+
+const { asyncHandler } = require('../middleware/error.middleware');
+const { NotFoundError } = require('../utils/errors');
+const projectsService = require('../services/projects.service');
+const { createContextLogger } = require('../utils/logger');
+
+// Logger contextual para este controlador
+const logger = createContextLogger('projects-controller');
+
+/**
+ * @route GET /api/projects
+ * @description Listar todos los proyectos (filtrable por organización)
+ */
+const getAllProjects = asyncHandler(async (req, res) => {
+  const { orgId } = req.query;
+  logger.info(`Obteniendo lista de proyectos${orgId ? ` para organización ${orgId}` : ''}`);
+  
+  const projects = await projectsService.getAll(orgId);
+  
+  res.json(projects);
+});
+
+/**
+ * @route GET /api/projects/:id
+ * @description Obtener un proyecto por ID
+ */
+const getProjectById = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  logger.info(`Obteniendo proyecto con ID: ${id}`);
+  
+  const project = await projectsService.getById(id);
+  
+  if (!project) {
+    throw new NotFoundError('Proyecto');
+  }
+  
+  res.json(project);
+});
+
+/**
+ * @route POST /api/projects
+ * @description Crear un nuevo proyecto y generar API keys
+ */
+const createProject = asyncHandler(async (req, res) => {
+  const { name, orgId } = req.body;
+  logger.info(`Creando nuevo proyecto en organización ${orgId}`);
+  
+  const newProject = await projectsService.create({ name, orgId });
+  
+  res.status(201).json(newProject);
+});
+
+/**
+ * @route PUT /api/projects/:id
+ * @description Actualizar un proyecto existente
+ */
+const updateProject = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { name } = req.body;
+  logger.info(`Actualizando proyecto con ID: ${id}`);
+  
+  const updatedProject = await projectsService.update(id, { name });
+  
+  if (!updatedProject) {
+    throw new NotFoundError('Proyecto');
+  }
+  
+  res.json(updatedProject);
+});
+
+/**
+ * @route DELETE /api/projects/:id
+ * @description Marcar un proyecto como eliminado (soft delete)
+ */
+const deleteProject = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  logger.info(`Eliminando proyecto con ID: ${id}`);
+  
+  await projectsService.delete(id);
+  
+  res.json({ message: 'Proyecto eliminado correctamente' });
+});
+
+module.exports = {
+  getAllProjects,
+  getProjectById,
+  createProject,
+  updateProject,
+  deleteProject
+};
+
+================
+File: src/controllers/users.controller.js
+================
+'use strict';
+
+const { asyncHandler } = require('../middleware/error.middleware');
+const { db } = require('../services/database.service');
+const { createContextLogger } = require('../utils/logger');
+
+// Logger contextual para este controlador
+const logger = createContextLogger('users-controller');
+
+/**
+ * @route GET /api/users
+ * @description Listar usuarios disponibles (para asignar a organizaciones)
+ */
+const getUsers = asyncHandler(async (req, res) => {
+  const { search, limit = 10 } = req.query;
+  logger.info('Obteniendo lista de usuarios');
+  
+  let query = 'SELECT id, name, email FROM users';
+  const params = [];
+  
+  if (search) {
+    query += ' WHERE name ILIKE $1 OR email ILIKE $1';
+    params.push(`%${search}%`);
+  }
+  
+  query += ' ORDER BY name LIMIT $' + (params.length + 1);
+  params.push(parseInt(limit, 10));
+  
+  const users = await db.query(query, params);
+  
+  res.json(users);
+});
+
+module.exports = {
+  getUsers
+};
+
+================
+File: src/middleware/auth.middleware.js
+================
+'use strict';
+
+const crypto = require('crypto');
+const config = require('../config');
+const { AuthenticationError, AuthorizationError } = require('../utils/errors');
+const dbService = require('../services/database.service');
+const { logger } = require('../utils/logger');
+
+/**
+ * Middleware para validar la API key administrativa
+ */
+const validateAdminApiKey = (req, res, next) => {
+  if (!config.enableApiKeyAuth) {
+    return next();
+  }
+  
+  const apiKey = req.headers['x-api-key'];
+  
+  if (!apiKey || apiKey !== config.apiKey) {
+    return next(new AuthenticationError('API Key inválida'));
+  }
+  
+  // Para simplificar el acceso administrativo, asumimos un usuario administrador
+  req.user = {
+    id: 'admin',
+    role: 'ADMIN'
+  };
+  
+  next();
+};
+
+/**
+ * Middleware para validar API keys de proyectos
+ * Verifica la autenticación para APIs de integración
+ */
+const validateProjectApiKey = async (req, res, next) => {
+  const publicKey = req.headers['x-api-key'];
+  const secretKey = req.headers['x-api-secret'];
+  
+  if (!publicKey || !secretKey) {
+    return next(new AuthenticationError('Se requieren API keys'));
+  }
+  
+  try {
+    // Buscar la API key por su clave pública
+    const apiKey = await dbService.queryOne(
+      'SELECT project_id, hashed_secret_key FROM api_keys WHERE public_key = $1',
+      [publicKey]
+    );
+    
+    if (!apiKey) {
+      return next(new AuthenticationError('API key no encontrada'));
+    }
+    
+    // Verificar la clave secreta hasheada
+    const hashedSecret = crypto.createHash('sha256').update("salt" + secretKey).digest('hex');
+    
+    if (hashedSecret !== apiKey.hashed_secret_key) {
+      return next(new AuthenticationError('Clave secreta inválida'));
+    }
+    
+    // Buscar el proyecto
+    const project = await dbService.queryOne(
+      'SELECT id, org_id, deleted_at FROM projects WHERE id = $1',
+      [apiKey.project_id]
+    );
+    
+    if (!project || project.deleted_at) {
+      return next(new AuthenticationError('Proyecto inactivo o eliminado'));
+    }
+    
+    // Actualizar último uso de la API key
+    await dbService.query(
+      'UPDATE api_keys SET last_used_at = CURRENT_TIMESTAMP WHERE public_key = $1',
+      [publicKey]
+    );
+    
+    // Adjuntar información del proyecto a la solicitud
+    req.project = project;
+    
+    next();
+  } catch (error) {
+    logger.error('Error al validar API key de proyecto:', error);
+    return next(new AuthenticationError('Error al validar credenciales'));
+  }
+};
+
+/**
+ * Middleware para verificar roles en la organización
+ * @param {string[]} allowedRoles - Roles permitidos
+ */
+const requireOrgRole = (allowedRoles = ['OWNER', 'ADMIN']) => {
+  return async (req, res, next) => {
+    // En una API administrativa simplificada, asumimos que el usuario tiene permisos
+    // Ya que se ha autenticado con la API key administrativa
+    next();
+  };
+};
+
+module.exports = {
+  validateAdminApiKey,
+  validateProjectApiKey,
+  requireOrgRole
+};
+
+================
+File: src/middleware/error.middleware.js
+================
+'use strict';
+
+const { AppError } = require('../utils/errors');
+const { logger } = require('../utils/logger');
+
+/**
+ * Middleware for capturing errors in async/await controllers
+ * Wraps controllers with a try/catch and passes the error to the next middleware
+ */
+const asyncHandler = (fn) => (req, res, next) => {
+  Promise.resolve(fn(req, res, next)).catch(next);
+};
+
+/**
+ * Central middleware to handle all application errors
+ */
+const errorHandler = (err, req, res, next) => {
+  // Application errors vs third-party errors
+  if (err instanceof AppError) {
+    const statusCode = err.status;
+    
+    // Log based on severity
+    if (statusCode >= 500) {
+      logger.error('Application error:', {
+        error: err.message,
+        stack: err.stack,
+        code: err.code,
+        details: err.details
+      });
+    } else {
+      logger.warn('Client error:', {
+        error: err.message,
+        code: err.code,
+        details: err.details
+      });
+    }
+    
+    return res.status(statusCode).json(err.toJSON());
+  }
+  
+  // Express and other library errors
+  let statusCode = 500;
+  let errorMessage = 'Internal server error';
+  let errorCode = 'INTERNAL_SERVER_ERROR';
+  
+  // Known specific errors
+  if (err.name === 'SyntaxError' && err.status === 400) {
+    statusCode = 400;
+    errorMessage = 'Invalid JSON format';
+    errorCode = 'INVALID_JSON';
+  } else if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND') {
+    statusCode = 503;
+    errorMessage = 'Service temporarily unavailable';
+    errorCode = 'SERVICE_UNAVAILABLE';
+  }
+  
+  // Log error
+  logger.error('Unhandled error:', {
+    error: err.message,
+    stack: err.stack,
+    type: err.name,
+    code: err.code
+  });
+  
+  // Response to client
+  const response = {
+    error: errorCode,
+    message: errorMessage
+  };
+  
+  if (process.env.NODE_ENV !== 'production') {
+    response.details = {
+      name: err.name,
+      message: err.message,
+      stack: err.stack?.split('\n')
+    };
+  }
+  
+  return res.status(statusCode).json(response);
+};
+
+module.exports = {
+  asyncHandler,
+  errorHandler
+};
+
+================
+File: src/middleware/request.middleware.js
+================
+'use strict';
+
+const { v4: uuidv4 } = require('uuid');
+const { logger } = require('../utils/logger');
+const config = require('../config');
+
+/**
+ * Middleware para logging estructurado de solicitudes HTTP
+ * Asigna un ID único a cada solicitud para seguimiento
+ */
+const requestLogger = (req, res, next) => {
+  // Omitir logging en test o si está desactivado
+  if (config.isTest || !config.enableRequestLogging) {
+    return next();
+  }
+  
+  // Generar un ID único para la solicitud
+  req.id = uuidv4();
+  res.setHeader('X-Request-ID', req.id);
+  
+  // Capturar tiempo de inicio
+  const start = Date.now();
+  
+  // Registrar datos de la solicitud
+  const logData = {
+    id: req.id,
+    method: req.method,
+    url: req.originalUrl || req.url,
+    ip: req.ip || req.connection.remoteAddress,
+    userAgent: req.get('user-agent') || 'unknown',
+  };
+  
+  // Log de la solicitud de entrada
+  logger.info(`Solicitud recibida: ${req.method} ${req.originalUrl}`, logData);
+  
+  // Capturar cuando finalice la respuesta
+  res.on('finish', () => {
+    // Calcular duración
+    const duration = Date.now() - start;
+    
+    // Añadir datos de respuesta
+    logData.statusCode = res.statusCode;
+    logData.duration = duration;
+    
+    // Nivel de log según el código de estado
+    const message = `Respuesta: ${res.statusCode} ${req.method} ${req.originalUrl} (${duration}ms)`;
+    
+    if (res.statusCode >= 500) {
+      logger.error(message, logData);
+    } else if (res.statusCode >= 400) {
+      logger.warn(message, logData);
+    } else {
+      logger.info(message, logData);
+    }
+  });
+  
+  next();
+};
+
+module.exports = {
+  requestLogger
+};
+
+================
+File: src/middleware/validation.middleware.js
+================
+'use strict';
+
+const Joi = require('joi');
+const { ValidationError } = require('../utils/errors');
+
+/**
+ * Middleware para validar solicitudes
+ * @param {Object} schema - Esquema de validación Joi para body, query y params
+ * @returns {Function} - Middleware de validación
+ */
+const validate = (schema) => {
+  return (req, res, next) => {
+    // Objeto para almacenar los errores
+    const validationErrors = {};
+    
+    // Validar body si hay un esquema definido
+    if (schema.body) {
+      const { error } = schema.body.validate(req.body, { abortEarly: false });
+      if (error) {
+        validationErrors.body = formatJoiErrors(error);
+      }
+    }
+    
+    // Validar query params si hay un esquema definido
+    if (schema.query) {
+      const { error } = schema.query.validate(req.query, { abortEarly: false });
+      if (error) {
+        validationErrors.query = formatJoiErrors(error);
+      }
+    }
+    
+    // Validar path params si hay un esquema definido
+    if (schema.params) {
+      const { error } = schema.params.validate(req.params, { abortEarly: false });
+      if (error) {
+        validationErrors.params = formatJoiErrors(error);
+      }
+    }
+    
+    // Si hay errores, lanzar error de validación
+    if (Object.keys(validationErrors).length > 0) {
+      return next(new ValidationError('Error de validación', validationErrors));
+    }
+    
+    next();
+  };
+};
+
+/**
+ * Formatea los errores de Joi en un formato más amigable
+ * @param {Object} error - Error de validación de Joi
+ * @returns {Object} - Errores formateados
+ */
+function formatJoiErrors(error) {
+  return error.details.reduce((acc, detail) => {
+    // Extraer el nombre del campo y quitar corchetes
+    const key = detail.path.join('.');
+    
+    // Formatear mensajes para ser más legibles
+    let message = detail.message.replace(/['"]/g, '');
+    
+    // Mensajes más amigables para casos comunes
+    if (message.includes('is required')) {
+      message = 'Este campo es requerido';
+    } else if (message.includes('must be a valid')) {
+      message = 'Formato inválido';
+    }
+    
+    acc[key] = message;
+    return acc;
+  }, {});
+}
+
+/**
+ * Esquema genérico para validar ID
+ * Ahora soporta tanto IDs en formato prefijo_base (como 'org_12345') como cuid (como 'cm84umiqf001bpp07fzmk5q26')
+ */
+const idSchema = Joi.string().pattern(/(^[a-z]+_[a-z0-9]+$)|(^c[a-z0-9]+$)/);
+
+/**
+ * Esquemas comunes reutilizables
+ */
+const commonSchemas = {
+  id: idSchema,
+  uuid: Joi.string().uuid(),
+  email: Joi.string().email(),
+  name: Joi.string().min(2).max(100),
+  pagination: Joi.object({
+    page: Joi.number().integer().min(1).default(1),
+    limit: Joi.number().integer().min(1).max(100).default(20),
+  }),
+  orgRole: Joi.string().valid('OWNER', 'ADMIN', 'VIEWER', 'NONE'),
+};
+
+module.exports = {
+  validate,
+  commonSchemas,
+  Joi, // Exportar Joi para definir esquemas en los controladores
+};
+
+================
+File: src/routes/api-keys.routes.js
+================
+'use strict';
+
+const express = require('express');
+const router = express.Router();
+const { validate, Joi, commonSchemas } = require('../middleware/validation.middleware');
+const apiKeysController = require('../controllers/api-keys.controller');
+const { NotFoundError } = require('../utils/errors');
+const dbService = require('../services/database.service');
+
+// Esquemas de validación
+const schemas = {
+  idParam: Joi.object({
+    id: commonSchemas.id.required(),
+  }),
+  
+  createApiKey: Joi.object({
+    note: Joi.string().trim().allow('').max(255).optional()
+      .messages({
+        'string.max': 'La nota no puede exceder {#limit} caracteres'
+      }),
+  }),
+};
+
+// Ruta para obtener detalles de una API key
+router.get('/:id', 
+  validate({ params: schemas.idParam }),
+  apiKeysController.getApiKeyById
+);
+
+// Ruta para regenerar una API key
+router.post('/:id/regenerate', 
+  validate({ params: schemas.idParam }),
+  // Verificar que la API key existe
+  async (req, res, next) => {
+    try {
+      const { id } = req.params;
+      const apiKeyInfo = await dbService.queryOne(
+        `SELECT ak.id 
+         FROM api_keys ak
+         JOIN projects p ON ak.project_id = p.id 
+         WHERE ak.id = $1 AND p.deleted_at IS NULL`,
+        [id]
+      );
+      
+      if (!apiKeyInfo) {
+        throw new NotFoundError('API key');
+      }
+      
+      next();
+    } catch (error) {
+      next(error);
+    }
+  },
+  apiKeysController.regenerateApiKey
+);
+
+// Ruta para eliminar una API key
+router.delete('/:id', 
+  validate({ params: schemas.idParam }),
+  // Verificar que la API key existe
+  async (req, res, next) => {
+    try {
+      const { id } = req.params;
+      const apiKeyInfo = await dbService.queryOne(
+        `SELECT ak.id 
+         FROM api_keys ak
+         JOIN projects p ON ak.project_id = p.id 
+         WHERE ak.id = $1 AND p.deleted_at IS NULL`,
+        [id]
+      );
+      
+      if (!apiKeyInfo) {
+        throw new NotFoundError('API key');
+      }
+      
+      next();
+    } catch (error) {
+      next(error);
+    }
+  },
+  apiKeysController.deleteApiKey
+);
+
+module.exports = router;
+
+================
+File: src/routes/health.routes.js
+================
+'use strict';
+
+const express = require('express');
+const router = express.Router();
+const healthController = require('../controllers/health.controller');
+
+/**
+ * Rutas para monitoreo de estado del servicio
+ * Estas rutas no requieren autenticación para permitir monitoreo externo
+ */
+
+// Estado general del servicio
+router.get('/', healthController.checkHealth);
+
+// Estado específico de la base de datos
+router.get('/db', healthController.checkDatabaseHealth);
+
+module.exports = router;
+
+================
+File: src/routes/index.js
+================
+'use strict';
+
+const express = require('express');
+const router = express.Router();
+const { validateAdminApiKey } = require('../middleware/auth.middleware');
+
+// Importar rutas específicas
+const organizationsRoutes = require('./organizations.routes');
+const projectsRoutes = require('./projects.routes');
+const usersRoutes = require('./users.routes');
+const healthRoutes = require('./health.routes');
+
+// Endpoint de estado (no requiere autenticación)
+router.use('/health', healthRoutes);
+
+// Rutas protegidas por API key administrativa
+// Este es el único punto de autenticación necesario
+router.use(validateAdminApiKey);
+
+// Rutas para cada recurso
+router.use('/organizations', organizationsRoutes);
+router.use('/projects', projectsRoutes);
+router.use('/users', usersRoutes);
+
+module.exports = router;
+
+================
+File: src/routes/organizations.routes.js
+================
+'use strict';
+
+const express = require('express');
+const router = express.Router();
+const { validate, Joi, commonSchemas } = require('../middleware/validation.middleware');
+const { requireOrgRole } = require('../middleware/auth.middleware');
+const organizationsController = require('../controllers/organizations.controller');
+
+// Esquemas de validación
+const schemas = {
+  idParam: Joi.object({
+    id: commonSchemas.id.required(),
+  }),
+  
+  orgIdUserIdParams: Joi.object({
+    orgId: commonSchemas.id.required(),
+    userId: commonSchemas.id.required(),
+  }),
+  
+  createOrg: Joi.object({
+    name: Joi.string().trim().min(1).max(100).required()
+      .messages({
+        'string.empty': 'El nombre de la organización no puede estar vacío',
+        'string.min': 'El nombre debe tener al menos {#limit} caracteres',
+        'string.max': 'El nombre no puede exceder {#limit} caracteres',
+        'any.required': 'El nombre es requerido'
+      }),
+    userId: Joi.string().required()
+      .messages({
+        'string.base': 'El ID de usuario debe ser una cadena de texto',
+        'any.required': 'El ID de usuario es obligatorio'
+      }),
+  }),
+  
+  updateOrg: Joi.object({
+    name: Joi.string().trim().min(1).max(100).required()
+      .messages({
+        'string.empty': 'El nombre de la organización no puede estar vacío',
+        'string.min': 'El nombre debe tener al menos {#limit} caracteres',
+        'string.max': 'El nombre no puede exceder {#limit} caracteres',
+        'any.required': 'El nombre es requerido'
+      }),
+  }),
+  
+  addMember: Joi.object({
+    userId: commonSchemas.id.required()
+      .messages({
+        'any.required': 'El ID de usuario es requerido'
+      }),
+    role: commonSchemas.orgRole.default('VIEWER')
+      .messages({
+        'any.only': 'Rol inválido. Debe ser OWNER, ADMIN, VIEWER o NONE'
+      }),
+  }),
+  
+  updateMember: Joi.object({
+    role: commonSchemas.orgRole.required()
+      .messages({
+        'any.required': 'El rol es requerido',
+        'any.only': 'Rol inválido. Debe ser OWNER, ADMIN, VIEWER o NONE'
+      }),
+  })
+};
+
+// Endpoints (ya protegidos por la API key administrativa en routes/index.js)
+router.get('/', organizationsController.getAllOrganizations);
+router.get('/:id', validate({ params: schemas.idParam }), organizationsController.getOrganizationById);
+router.post('/', validate({ body: schemas.createOrg }), organizationsController.createOrganization);
+
+// Endpoints que requieren permisos específicos
+router.put('/:id', 
+  validate({ params: schemas.idParam, body: schemas.updateOrg }), 
+  organizationsController.updateOrganization
+);
+
+// Endpoints para gestión de miembros
+router.get('/:id/members', 
+  validate({ params: schemas.idParam }), 
+  organizationsController.getOrganizationMembers
+);
+
+router.post('/:id/members', 
+  validate({ params: schemas.idParam, body: schemas.addMember }), 
+  organizationsController.addOrganizationMember
+);
+
+router.put('/:orgId/members/:userId', 
+  validate({ params: schemas.orgIdUserIdParams, body: schemas.updateMember }), 
+  organizationsController.updateOrganizationMember
+);
+
+router.delete('/:orgId/members/:userId', 
+  validate({ params: schemas.orgIdUserIdParams }), 
+  organizationsController.removeOrganizationMember
+);
+
+module.exports = router;
+
+================
+File: src/routes/projects.routes.js
+================
+'use strict';
+
+const express = require('express');
+const router = express.Router();
+const { validate, Joi, commonSchemas } = require('../middleware/validation.middleware');
+const projectsController = require('../controllers/projects.controller');
+const apiKeysController = require('../controllers/api-keys.controller');
+const { NotFoundError } = require('../utils/errors');
+const dbService = require('../services/database.service');
+
+// Esquemas de validación
+const schemas = {
+  idParam: Joi.object({
+    id: commonSchemas.id.required(),
+  }),
+  
+  queryOrgId: Joi.object({
+    orgId: Joi.string().optional()
+      .messages({
+        'string.base': 'El ID de organización debe ser una cadena de texto'
+      }),
+  }),
+  
+  createProject: Joi.object({
+    name: Joi.string().trim().min(1).max(100).required()
+      .messages({
+        'string.empty': 'El nombre del proyecto no puede estar vacío',
+        'string.min': 'El nombre debe tener al menos {#limit} caracteres',
+        'string.max': 'El nombre no puede exceder {#limit} caracteres',
+        'any.required': 'El nombre es requerido'
+      }),
+    orgId: commonSchemas.id.required()
+      .messages({
+        'any.required': 'El ID de organización es requerido'
+      }),
+  }),
+  
+  updateProject: Joi.object({
+    name: Joi.string().trim().min(1).max(100).required()
+      .messages({
+        'string.empty': 'El nombre del proyecto no puede estar vacío',
+        'string.min': 'El nombre debe tener al menos {#limit} caracteres',
+        'string.max': 'El nombre no puede exceder {#limit} caracteres',
+        'any.required': 'El nombre es requerido'
+      }),
+  }),
+  
+  createApiKey: Joi.object({
+    note: Joi.string().trim().allow('').max(255).optional()
+      .messages({
+        'string.max': 'La nota no puede exceder {#limit} caracteres'
+      }),
+  }),
+};
+
+// Middleware para verificar que un proyecto existe
+const checkProjectExists = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const project = await dbService.queryOne(
+      'SELECT org_id FROM projects WHERE id = $1 AND deleted_at IS NULL',
+      [id]
+    );
+    
+    if (!project) {
+      throw new NotFoundError('Proyecto');
+    }
+    
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Endpoints para proyectos
+router.get('/', 
+  validate({ query: schemas.queryOrgId }), 
+  projectsController.getAllProjects
+);
+
+router.get('/:id', 
+  validate({ params: schemas.idParam }), 
+  projectsController.getProjectById
+);
+
+router.post('/', 
+  validate({ body: schemas.createProject }), 
+  projectsController.createProject
+);
+
+router.put('/:id', 
+  validate({ params: schemas.idParam, body: schemas.updateProject }), 
+  checkProjectExists,
+  projectsController.updateProject
+);
+
+router.delete('/:id', 
+  validate({ params: schemas.idParam }), 
+  checkProjectExists,
+  projectsController.deleteProject
+);
+
+// Rutas para API keys de proyectos
+router.get('/:id/api-keys',
+  validate({ params: schemas.idParam }),
+  checkProjectExists,
+  apiKeysController.getProjectApiKeys
+);
+
+router.post('/:id/api-keys',
+  validate({ params: schemas.idParam, body: schemas.createApiKey }),
+  checkProjectExists,
+  apiKeysController.createApiKey
+);
+
+module.exports = router;
+
+================
+File: src/routes/users.routes.js
+================
+'use strict';
+
+const express = require('express');
+const router = express.Router();
+const { validate, Joi, commonSchemas } = require('../middleware/validation.middleware');
+const usersController = require('../controllers/users.controller');
+
+// Esquemas de validación
+const schemas = {
+  listUsers: Joi.object({
+    search: Joi.string().trim().max(50).optional(),
+    limit: Joi.number().integer().min(1).max(100).default(10).optional()
+  })
+};
+
+// Endpoint para listar usuarios
+router.get('/', validate({ query: schemas.listUsers }), usersController.getUsers);
+
+module.exports = router;
+
+================
+File: src/services/api-keys.service.js
+================
+'use strict';
+
+const { db, transaction } = require('./database.service');
+const { generateId, generateApiKey, hashSecretKey } = require('../utils/id-generator');
+const { NotFoundError } = require('../utils/errors');
+const { createContextLogger } = require('../utils/logger');
+
+// Logger contextual para este servicio
+const logger = createContextLogger('api-keys-service');
+
+/**
+ * Servicio para manejar operaciones relacionadas con API keys
+ */
+class ApiKeysService {
+  /**
+   * Obtiene todas las API keys de un proyecto
+   * @param {string} projectId - ID del proyecto
+   * @returns {Promise<Array>} Lista de API keys
+   */
+  async getByProject(projectId) {
+    return db.query(
+      `SELECT id, created_at, public_key, display_secret_key, last_used_at, note
+       FROM api_keys
+       WHERE project_id = $1
+       ORDER BY created_at DESC`,
+      [projectId]
+    );
+  }
+
+  /**
+   * Obtiene detalles de una API key específica
+   * @param {string} id - ID de la API key
+   * @returns {Promise<Object|null>} Detalles de la API key o null si no existe
+   */
+  async getById(id) {
+    const apiKey = await db.queryOne(
+      `SELECT ak.id, ak.created_at, ak.public_key, ak.display_secret_key, 
+              ak.last_used_at, ak.note, p.id as project_id, p.name as project_name
+       FROM api_keys ak
+       JOIN projects p ON ak.project_id = p.id
+       WHERE ak.id = $1 AND p.deleted_at IS NULL`,
+      [id]
+    );
+    
+    if (!apiKey) {
+      throw new NotFoundError('API key');
+    }
+    
+    return apiKey;
+  }
+
+  /**
+   * Crea una nueva API key para un proyecto
+   * @param {string} projectId - ID del proyecto
+   * @param {Object} data - Datos adicionales
+   * @param {string} data.note - Nota descriptiva (opcional)
+   * @returns {Promise<Object>} Nueva API key creada
+   */
+  async create(projectId, { note = null } = {}) {
+    return transaction(async (client) => {
+      // Verificar si el proyecto existe
+      const projectCheck = await client.query(
+        'SELECT id FROM projects WHERE id = $1 AND deleted_at IS NULL',
+        [projectId]
+      );
+      
+      if (projectCheck.rows.length === 0) {
+        throw new NotFoundError('Proyecto');
+      }
+      
+      // Generar API keys
+      const publicKey = generateApiKey('pk');
+      const secretKey = generateApiKey('sk');
+      const hashedSecretKey = hashSecretKey(secretKey);
+      
+      // Crear API key
+      const apiKeyId = generateId('key');
+      const apiKeyResult = await client.query(
+        `INSERT INTO api_keys (
+          id, 
+          project_id, 
+          created_at, 
+          public_key, 
+          hashed_secret_key, 
+          display_secret_key,
+          note
+        ) VALUES ($1, $2, CURRENT_TIMESTAMP, $3, $4, $5, $6)
+        RETURNING id, created_at, public_key, display_secret_key, note`,
+        [
+          apiKeyId, 
+          projectId, 
+          publicKey, 
+          hashedSecretKey, 
+          secretKey.substring(0, 8) + '...', 
+          note
+        ]
+      );
+      
+      logger.info(`Nueva API key creada con ID: ${apiKeyId} para proyecto ${projectId}`);
+      
+      // Devolver con secretKey completa (solo se muestra una vez)
+      return {
+        ...apiKeyResult.rows[0],
+        secretKey
+      };
+    });
+  }
+
+  /**
+   * Regenera una API key existente
+   * @param {string} id - ID de la API key
+   * @returns {Promise<Object>} Nueva API key regenerada
+   */
+  async regenerate(id) {
+    return transaction(async (client) => {
+      // Verificar si la API key existe
+      const apiKeyCheck = await client.query(
+        'SELECT id, project_id, note FROM api_keys WHERE id = $1',
+        [id]
+      );
+      
+      if (apiKeyCheck.rows.length === 0) {
+        throw new NotFoundError('API key');
+      }
+      
+      const existingKey = apiKeyCheck.rows[0];
+      
+      // Generar nuevas claves
+      const publicKey = generateApiKey('pk');
+      const secretKey = generateApiKey('sk');
+      const hashedSecretKey = hashSecretKey(secretKey);
+      
+      // Actualizar la API key existente
+      const apiKeyResult = await client.query(
+        `UPDATE api_keys
+         SET public_key = $1, 
+             hashed_secret_key = $2, 
+             display_secret_key = $3,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $4
+         RETURNING id, created_at, public_key, display_secret_key, note, last_used_at`,
+        [
+          publicKey,
+          hashedSecretKey,
+          secretKey.substring(0, 8) + '...',
+          id
+        ]
+      );
+      
+      logger.info(`API key regenerada con ID: ${id}`);
+      
+      // Devolver con secretKey completa (solo se muestra una vez)
+      return {
+        ...apiKeyResult.rows[0],
+        secretKey
+      };
+    });
+  }
+
+  /**
+   * Elimina una API key
+   * @param {string} id - ID de la API key
+   * @returns {Promise<boolean>} true si se eliminó correctamente
+   */
+  async delete(id) {
+    const result = await db.query(
+      'DELETE FROM api_keys WHERE id = $1 RETURNING id',
+      [id]
+    );
+    
+    if (result.length === 0) {
+      throw new NotFoundError('API key');
+    }
+    
+    logger.info(`API key eliminada: ${id}`);
+    return true;
+  }
+
+  /**
+   * Verifica una API key para autenticación
+   * @param {string} publicKey - Clave pública
+   * @param {string} secretKey - Clave secreta
+   * @returns {Promise<Object|null>} Proyecto asociado o null si las credenciales son inválidas
+   */
+  async verify(publicKey, secretKey) {
+    if (!publicKey || !secretKey) {
+      return null;
+    }
+    
+    // Buscar la API key por su clave pública
+    const apiKey = await db.queryOne(
+      'SELECT project_id, hashed_secret_key FROM api_keys WHERE public_key = $1',
+      [publicKey]
+    );
+    
+    if (!apiKey) {
+      return null;
+    }
+    
+    // Verificar la clave secreta hasheada
+    const hashedSecret = hashSecretKey(secretKey);
+    
+    if (hashedSecret !== apiKey.hashed_secret_key) {
+      return null;
+    }
+    
+    // Buscar el proyecto
+    const project = await db.queryOne(
+      'SELECT id, org_id, name, deleted_at FROM projects WHERE id = $1',
+      [apiKey.project_id]
+    );
+    
+    if (!project || project.deleted_at) {
+      return null;
+    }
+    
+    // Actualizar último uso de la API key
+    await db.query(
+      'UPDATE api_keys SET last_used_at = CURRENT_TIMESTAMP WHERE public_key = $1',
+      [publicKey]
+    );
+    
+    // Retornar proyecto (sin deleted_at)
+    const { deleted_at, ...projectData } = project;
+    return projectData;
+  }
+}
+
+module.exports = new ApiKeysService();
+
+================
+File: src/services/database.service.js
+================
+'use strict';
+
+const { Pool } = require('pg');
+const config = require('../config');
+const { DatabaseError } = require('../utils/errors');
+const { logger } = require('../utils/logger');
+
+/**
+ * Abstracción de la base de datos para centralizar manejo de conexiones y queries
+ */
+class DatabaseService {
+  constructor() {
+    this.pool = new Pool({
+      host: config.db.host,
+      port: config.db.port,
+      database: config.db.database,
+      user: config.db.user,
+      password: config.db.password,
+      ssl: config.db.ssl,
+      max: config.db.pool.max,
+      idleTimeoutMillis: config.db.pool.idleTimeoutMillis,
+    });
+
+    // Eventos para monitoreo del pool
+    this.pool.on('connect', () => {
+      logger.debug('Conexión adquirida desde el pool');
+    });
+
+    this.pool.on('error', (err) => {
+      logger.error('Error inesperado en cliente del pool', err);
+    });
+
+    logger.info('Servicio de base de datos inicializado');
+  }
+
+  /**
+   * Ejecuta una consulta individual
+   * @param {string} text - Consulta SQL
+   * @param {Array} params - Parámetros para consulta
+   * @returns {Promise<Object>} - Resultado de la consulta
+   */
+  async query(text, params = []) {
+    try {
+      const start = Date.now();
+      const result = await this.pool.query(text, params);
+      const duration = Date.now() - start;
+      
+      // Loguear consultas lentas
+      if (duration > 500) {
+        logger.warn(`Consulta lenta (${duration}ms): ${text}`);
+      } else {
+        logger.debug(`Consulta ejecutada (${duration}ms): ${text}`);
+      }
+      
+      return result.rows;
+    } catch (error) {
+      logger.error('Error en consulta:', {
+        query: text,
+        params,
+        error: error.message,
+        stack: error.stack,
+      });
+      
+      throw new DatabaseError('Error al ejecutar consulta', { cause: error });
+    }
+  }
+
+  /**
+   * Ejecuta una consulta y devuelve un solo registro
+   * @param {string} text - Consulta SQL
+   * @param {Array} params - Parámetros para consulta
+   * @returns {Promise<Object|null>} - Registro único o null
+   */
+  async queryOne(text, params = []) {
+    const rows = await this.query(text, params);
+    return rows.length > 0 ? rows[0] : null;
+  }
+
+  /**
+   * Ejecuta una transacción con múltiples consultas
+   * @param {Function} callback - Función que recibe cliente y ejecuta consultas
+   * @returns {Promise<any>} - Resultado del callback
+   */
+  async transaction(callback) {
+    const client = await this.pool.connect();
+    
+    try {
+      await client.query('BEGIN');
+      const result = await callback(client);
+      await client.query('COMMIT');
+      return result;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      logger.error('Error en transacción:', {
+        error: error.message,
+        stack: error.stack,
+      });
+      throw new DatabaseError('Error al ejecutar transacción', { cause: error });
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Cierra todas las conexiones del pool
+   */
+  async close() {
+    logger.info('Cerrando conexiones de base de datos');
+    return this.pool.end();
+  }
+}
+
+// Singleton para reutilizar en toda la aplicación
+const dbService = new DatabaseService();
+
+module.exports = dbService;
+
+================
+File: src/services/organizations.service.js
+================
+'use strict';
+
+const { db, transaction } = require('./database.service');
+const { generateId } = require('../utils/id-generator');
+const { 
+  NotFoundError, 
+  ConflictError, 
+  BusinessLogicError 
+} = require('../utils/errors');
+const { createContextLogger } = require('../utils/logger');
+
+// Logger contextual para este servicio
+const logger = createContextLogger('organizations-service');
+
+/**
+ * Servicio para manejar operaciones relacionadas con organizaciones
+ */
+class OrganizationsService {
+  /**
+   * Obtiene todas las organizaciones
+   * @returns {Promise<Array>} Lista de organizaciones
+   */
+  async getAll() {
+    return db.query(
+      'SELECT * FROM organizations ORDER BY created_at DESC'
+    );
+  }
+
+  /**
+   * Obtiene una organización por su ID
+   * @param {string} id - ID de la organización
+   * @returns {Promise<Object|null>} Organización o null si no existe
+   */
+  async getById(id) {
+    return db.queryOne(
+      'SELECT * FROM organizations WHERE id = $1',
+      [id]
+    );
+  }
+
+  /**
+   * Crea una nueva organización
+   * @param {Object} data - Datos de la organización
+   * @param {string} data.name - Nombre de la organización
+   * @param {string} data.userId - ID del usuario que será propietario (obligatorio)
+   * @returns {Promise<Object>} Nueva organización creada
+   */
+  async create({ name, userId }) {
+    if (!name || !name.trim()) {
+      throw new BusinessLogicError('El nombre es requerido');
+    }
+    
+    if (!userId) {
+      throw new BusinessLogicError('El ID de usuario es obligatorio para crear una organización');
+    }
+    
+    return transaction(async (client) => {
+      // Verificar si el usuario proporcionado existe
+      const userExists = await client.query(
+        'SELECT id FROM users WHERE id = $1',
+        [userId]
+      );
+      
+      if (userExists.rows.length === 0) {
+        throw new NotFoundError('Usuario no encontrado');
+      }
+      
+      // Generar ID único para la organización usando cuid
+      const id = generateId('org');
+      
+      // Insertar organización
+      const result = await client.query(
+        `INSERT INTO organizations (id, name, created_at, updated_at)
+         VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+         RETURNING *`,
+        [id, name.trim()]
+      );
+      
+      const organization = result.rows[0];
+      
+      // Crear membresía para el usuario (propietario de la organización)
+      const membershipId = generateId('om');
+      await client.query(
+        `INSERT INTO organization_memberships (id, org_id, user_id, role, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+        [membershipId, id, userId, 'OWNER']
+      );
+      
+      logger.info(`Organización creada con ID: ${id}, propietario: ${userId}`);
+      return organization;
+    });
+  }
+
+  /**
+   * Actualiza una organización existente
+   * @param {string} id - ID de la organización
+   * @param {Object} data - Datos a actualizar
+   * @param {string} data.name - Nuevo nombre
+   * @returns {Promise<Object|null>} Organización actualizada o null
+   */
+  async update(id, { name }) {
+    if (!name || !name.trim()) {
+      throw new BusinessLogicError('El nombre es requerido');
+    }
+    
+    const result = await db.query(
+      `UPDATE organizations 
+       SET name = $1, updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $2 
+       RETURNING *`,
+      [name.trim(), id]
+    );
+    
+    if (result.length === 0) {
+      return null;
+    }
+    
+    logger.info(`Organización actualizada: ${id}`);
+    return result[0];
+  }
+
+  /**
+   * Obtiene los miembros de una organización
+   * @param {string} orgId - ID de la organización
+   * @returns {Promise<Array>} Lista de miembros
+   */
+  async getMembers(orgId) {
+    // Verificar si la organización existe
+    const org = await this.getById(orgId);
+    if (!org) {
+      throw new NotFoundError('Organización');
+    }
+    
+    return db.query(
+      `SELECT om.id, om.user_id, om.role, om.created_at, om.updated_at,
+              u.name, u.email, u.image
+       FROM organization_memberships om
+       JOIN users u ON om.user_id = u.id
+       WHERE om.org_id = $1
+       ORDER BY om.created_at DESC`,
+      [orgId]
+    );
+  }
+
+  /**
+   * Añade un usuario a una organización
+   * @param {string} orgId - ID de la organización
+   * @param {string} userId - ID del usuario
+   * @param {string} role - Rol del usuario (OWNER, ADMIN, VIEWER, NONE)
+   * @returns {Promise<Object>} Membresía creada
+   */
+  async addMember(orgId, userId, role = 'VIEWER') {
+    if (!userId) {
+      throw new BusinessLogicError('El ID de usuario es requerido');
+    }
+    
+    // Validar rol
+    const validRoles = ['OWNER', 'ADMIN', 'VIEWER', 'NONE'];
+    if (!validRoles.includes(role)) {
+      throw new BusinessLogicError('Rol inválido. Debe ser OWNER, ADMIN, VIEWER o NONE');
+    }
+    
+    return transaction(async (client) => {
+      // Verificar si el usuario existe
+      const userCheck = await client.query(
+        'SELECT id FROM users WHERE id = $1',
+        [userId]
+      );
+      
+      if (userCheck.rows.length === 0) {
+        throw new NotFoundError('Usuario');
+      }
+      
+      // Verificar si la organización existe
+      const orgCheck = await client.query(
+        'SELECT id FROM organizations WHERE id = $1',
+        [orgId]
+      );
+      
+      if (orgCheck.rows.length === 0) {
+        throw new NotFoundError('Organización');
+      }
+      
+      // Verificar si ya es miembro
+      const memberCheck = await client.query(
+        'SELECT id FROM organization_memberships WHERE org_id = $1 AND user_id = $2',
+        [orgId, userId]
+      );
+      
+      if (memberCheck.rows.length > 0) {
+        throw new ConflictError('El usuario ya es miembro de esta organización');
+      }
+      
+      // Crear membresía
+      const membershipId = generateId('om');
+      const memberResult = await client.query(
+        `INSERT INTO organization_memberships (id, org_id, user_id, role, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+         RETURNING *`,
+        [membershipId, orgId, userId, role]
+      );
+      
+      logger.info(`Usuario ${userId} añadido a organización ${orgId} con rol ${role}`);
+      return memberResult.rows[0];
+    });
+  }
+
+  /**
+   * Actualiza el rol de un miembro en la organización
+   * @param {string} orgId - ID de la organización
+   * @param {string} userId - ID del usuario
+   * @param {string} role - Nuevo rol
+   * @returns {Promise<Object>} Membresía actualizada
+   */
+  async updateMember(orgId, userId, role) {
+    if (!role) {
+      throw new BusinessLogicError('El rol es requerido');
+    }
+    
+    // Validar rol
+    const validRoles = ['OWNER', 'ADMIN', 'VIEWER', 'NONE'];
+    if (!validRoles.includes(role)) {
+      throw new BusinessLogicError('Rol inválido. Debe ser OWNER, ADMIN, VIEWER o NONE');
+    }
+    
+    // Si el nuevo rol no es OWNER, verificar que no sea el último propietario
+    let result;
+    if (role !== 'OWNER') {
+      result = await transaction(async (client) => {
+        // Comprobar si el usuario actual es OWNER
+        const currentRole = await client.query(
+          'SELECT role FROM organization_memberships WHERE org_id = $1 AND user_id = $2',
+          [orgId, userId]
+        );
+        
+        if (currentRole.rows.length === 0) {
+          throw new NotFoundError('Membresía');
+        }
+        
+        if (currentRole.rows[0].role === 'OWNER') {
+          // Contar propietarios
+          const ownersCount = await client.query(
+            'SELECT COUNT(*) FROM organization_memberships WHERE org_id = $1 AND role = $2',
+            [orgId, 'OWNER']
+          );
+          
+          if (parseInt(ownersCount.rows[0].count) <= 1) {
+            throw new BusinessLogicError('No se puede cambiar el rol del último propietario');
+          }
+        }
+        
+        // Actualizar rol
+        const updateResult = await client.query(
+          `UPDATE organization_memberships 
+           SET role = $1, updated_at = CURRENT_TIMESTAMP 
+           WHERE org_id = $2 AND user_id = $3 
+           RETURNING *`,
+          [role, orgId, userId]
+        );
+        
+        if (updateResult.rows.length === 0) {
+          throw new NotFoundError('Membresía');
+        }
+        
+        logger.info(`Rol de usuario ${userId} en organización ${orgId} actualizado a ${role}`);
+        return updateResult.rows[0];
+      });
+    } else {
+      // Si el nuevo rol es OWNER, simplemente actualizar
+      const rows = await db.query(
+        `UPDATE organization_memberships 
+         SET role = $1, updated_at = CURRENT_TIMESTAMP 
+         WHERE org_id = $2 AND user_id = $3 
+         RETURNING *`,
+        [role, orgId, userId]
+      );
+      
+      if (rows.length === 0) {
+        throw new NotFoundError('Membresía');
+      }
+      
+      logger.info(`Usuario ${userId} promovido a propietario en organización ${orgId}`);
+      result = rows[0];
+    }
+    
+    return result;
+  }
+
+  /**
+   * Elimina un miembro de la organización
+   * @param {string} orgId - ID de la organización
+   * @param {string} userId - ID del usuario
+   * @returns {Promise<boolean>} true si se eliminó correctamente
+   */
+  async removeMember(orgId, userId) {
+    return transaction(async (client) => {
+      // Verificar si es el último propietario
+      const currentRole = await client.query(
+        'SELECT role FROM organization_memberships WHERE org_id = $1 AND user_id = $2',
+        [orgId, userId]
+      );
+      
+      if (currentRole.rows.length === 0) {
+        throw new NotFoundError('Membresía');
+      }
+      
+      if (currentRole.rows[0].role === 'OWNER') {
+        // Contar propietarios
+        const ownersCount = await client.query(
+          'SELECT COUNT(*) FROM organization_memberships WHERE org_id = $1 AND role = $2',
+          [orgId, 'OWNER']
+        );
+        
+        if (parseInt(ownersCount.rows[0].count) <= 1) {
+          throw new BusinessLogicError('No se puede eliminar al último propietario');
+        }
+      }
+      
+      // Primero eliminar membresías de proyecto relacionadas
+      await client.query(
+        'DELETE FROM project_memberships WHERE org_membership_id IN (SELECT id FROM organization_memberships WHERE org_id = $1 AND user_id = $2)',
+        [orgId, userId]
+      );
+      
+      // Luego eliminar la membresía de organización
+      const deleteResult = await client.query(
+        'DELETE FROM organization_memberships WHERE org_id = $1 AND user_id = $2 RETURNING *',
+        [orgId, userId]
+      );
+      
+      if (deleteResult.rows.length === 0) {
+        throw new NotFoundError('Membresía');
+      }
+      
+      logger.info(`Usuario ${userId} eliminado de organización ${orgId}`);
+      return true;
+    });
+  }
+}
+
+module.exports = new OrganizationsService();
+
+================
+File: src/services/projects.service.js
+================
+'use strict';
+
+const { db, transaction } = require('./database.service');
+const { generateId, generateApiKey, hashSecretKey } = require('../utils/id-generator');
+const { NotFoundError, BusinessLogicError } = require('../utils/errors');
+const { createContextLogger } = require('../utils/logger');
+
+// Logger contextual para este servicio
+const logger = createContextLogger('projects-service');
+
+/**
+ * Servicio para manejar operaciones relacionadas con proyectos
+ */
+class ProjectsService {
+  /**
+   * Obtiene todos los proyectos
+   * @param {string} orgId - ID de organización para filtrar (opcional)
+   * @returns {Promise<Array>} Lista de proyectos
+   */
+  async getAll(orgId = null) {
+    let queryText = 'SELECT * FROM projects WHERE deleted_at IS NULL';
+    const params = [];
+    
+    if (orgId) {
+      queryText += ' AND org_id = $1';
+      params.push(orgId);
+    }
+    
+    queryText += ' ORDER BY created_at DESC';
+    
+    return db.query(queryText, params);
+  }
+
+  /**
+   * Obtiene un proyecto por su ID
+   * @param {string} id - ID del proyecto
+   * @returns {Promise<Object|null>} Proyecto o null si no existe
+   */
+  async getById(id) {
+    return db.queryOne(
+      'SELECT * FROM projects WHERE id = $1 AND deleted_at IS NULL',
+      [id]
+    );
+  }
+
+  /**
+   * Crea un nuevo proyecto
+   * @param {Object} data - Datos del proyecto
+   * @param {string} data.name - Nombre del proyecto
+   * @param {string} data.orgId - ID de la organización
+   * @returns {Promise<Object>} Nuevo proyecto creado con API keys
+   */
+  async create({ name, orgId }) {
+    if (!name || !name.trim()) {
+      throw new BusinessLogicError('El nombre es requerido');
+    }
+    
+    if (!orgId) {
+      throw new BusinessLogicError('El ID de organización es requerido');
+    }
+    
+    return transaction(async (client) => {
+      // Verificar si la organización existe
+      const orgCheck = await client.query(
+        'SELECT id FROM organizations WHERE id = $1',
+        [orgId]
+      );
+      
+      if (orgCheck.rows.length === 0) {
+        throw new NotFoundError('Organización');
+      }
+      
+      // Generar ID único para el proyecto
+      const projectId = generateId('prj');
+      
+      // Insertar proyecto
+      const projectResult = await client.query(
+        `INSERT INTO projects (id, name, org_id, created_at, updated_at)
+         VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+         RETURNING *`,
+        [projectId, name.trim(), orgId]
+      );
+      
+      const project = projectResult.rows[0];
+      
+      // Generar par de API keys
+      const publicKey = generateApiKey('pk');
+      const secretKey = generateApiKey('sk');
+      const hashedSecretKey = hashSecretKey(secretKey);
+      
+      // Crear API key en la base de datos
+      const apiKeyId = generateId('key');
+      await client.query(
+        `INSERT INTO api_keys (
+          id, 
+          project_id, 
+          created_at, 
+          public_key, 
+          hashed_secret_key, 
+          display_secret_key
+        ) VALUES ($1, $2, CURRENT_TIMESTAMP, $3, $4, $5)`,
+        [
+          apiKeyId, 
+          projectId, 
+          publicKey, 
+          hashedSecretKey, 
+          secretKey.substring(0, 8) + '...'
+        ]
+      );
+      
+      logger.info(`Proyecto creado con ID: ${projectId} en organización ${orgId}`);
+      
+      // Devolver proyecto con API keys (secretKey solo se muestra una vez)
+      return {
+        ...project,
+        apiKeys: {
+          publicKey,
+          secretKey // Completa, solo se muestra ahora
+        }
+      };
+    });
+  }
+
+  /**
+   * Actualiza un proyecto existente
+   * @param {string} id - ID del proyecto
+   * @param {Object} data - Datos a actualizar
+   * @param {string} data.name - Nuevo nombre
+   * @returns {Promise<Object|null>} Proyecto actualizado o null
+   */
+  async update(id, { name }) {
+    if (!name || !name.trim()) {
+      throw new BusinessLogicError('El nombre es requerido');
+    }
+    
+    const result = await db.query(
+      `UPDATE projects 
+       SET name = $1, updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $2 AND deleted_at IS NULL
+       RETURNING *`,
+      [name.trim(), id]
+    );
+    
+    if (result.length === 0) {
+      return null;
+    }
+    
+    logger.info(`Proyecto actualizado: ${id}`);
+    return result[0];
+  }
+
+  /**
+   * Marca un proyecto como eliminado (soft delete)
+   * @param {string} id - ID del proyecto
+   * @returns {Promise<boolean>} true si se eliminó correctamente
+   */
+  async delete(id) {
+    const result = await db.query(
+      `UPDATE projects 
+       SET deleted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $1 AND deleted_at IS NULL
+       RETURNING id`,
+      [id]
+    );
+    
+    if (result.length === 0) {
+      throw new NotFoundError('Proyecto');
+    }
+    
+    logger.info(`Proyecto marcado como eliminado: ${id}`);
+    return true;
+  }
+}
+
+module.exports = new ProjectsService();
+
+================
+File: src/utils/errors.js
+================
+'use strict';
+
+/**
+ * Sistema de errores personalizado para la aplicación
+ * Permite categorizar y manejar errores de forma consistente
+ */
+
+/**
+ * Error base de la aplicación
+ * Todos los errores personalizados extenderán de esta clase
+ */
+class AppError extends Error {
+  constructor(message, options = {}) {
+    super(message);
+    this.name = this.constructor.name;
+    this.status = options.status || 500;
+    this.code = options.code || 'INTERNAL_ERROR';
+    this.cause = options.cause;
+    this.details = options.details || {};
+    
+    // Capturar stack trace correctamente
+    Error.captureStackTrace(this, this.constructor);
+  }
+  
+  /**
+   * Convierte el error a formato JSON para respuestas API
+   */
+  toJSON() {
+    const error = {
+      error: this.code,
+      message: this.message,
+    };
+    
+    // Incluir detalles si existen
+    if (Object.keys(this.details).length > 0) {
+      error.details = this.details;
+    }
+    
+    return error;
+  }
+}
+
+/**
+ * Error de validación (400 Bad Request)
+ */
+class ValidationError extends AppError {
+  constructor(message, details = {}) {
+    super(message, {
+      status: 400,
+      code: 'VALIDATION_ERROR',
+      details
+    });
+  }
+}
+
+/**
+ * Error de autenticación (401 Unauthorized)
+ */
+class AuthenticationError extends AppError {
+  constructor(message = 'Credenciales inválidas') {
+    super(message, {
+      status: 401,
+      code: 'AUTHENTICATION_ERROR'
+    });
+  }
+}
+
+/**
+ * Error de autorización (403 Forbidden)
+ */
+class AuthorizationError extends AppError {
+  constructor(message = 'No tiene permisos para esta acción') {
+    super(message, {
+      status: 403,
+      code: 'AUTHORIZATION_ERROR'
+    });
+  }
+}
+
+/**
+ * Error de recurso no encontrado (404 Not Found)
+ */
+class NotFoundError extends AppError {
+  constructor(resource = 'Recurso') {
+    super(`${resource} no encontrado`, {
+      status: 404,
+      code: 'NOT_FOUND',
+      details: { resource }
+    });
+  }
+}
+
+/**
+ * Error de conflicto (409 Conflict)
+ */
+class ConflictError extends AppError {
+  constructor(message, details = {}) {
+    super(message, {
+      status: 409,
+      code: 'CONFLICT',
+      details
+    });
+  }
+}
+
+/**
+ * Error de base de datos
+ */
+class DatabaseError extends AppError {
+  constructor(message = 'Error de base de datos', options = {}) {
+    super(message, {
+      ...options,
+      status: options.status || 500,
+      code: options.code || 'DATABASE_ERROR'
+    });
+  }
+}
+
+/**
+ * Errores específicos de negocio
+ */
+class BusinessLogicError extends AppError {
+  constructor(message, options = {}) {
+    super(message, {
+      ...options,
+      status: options.status || 400,
+      code: options.code || 'BUSINESS_LOGIC_ERROR'
+    });
+  }
+}
+
+module.exports = {
+  AppError,
+  ValidationError,
+  AuthenticationError,
+  AuthorizationError,
+  NotFoundError,
+  ConflictError,
+  DatabaseError,
+  BusinessLogicError
+};
+
+================
+File: src/utils/id-generator.js
+================
+'use strict';
+
+const crypto = require('crypto');
+const { customAlphabet } = require('nanoid');
+const cuid = require('cuid'); // Añadir dependencia a cuid
+
+// Alfabeto seguro para IDs (evitando caracteres similares)
+const ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+
+// Crear generador de IDs con nanoid para mejor rendimiento y seguridad
+const nanoid = customAlphabet(ALPHABET, 10);
+
+/**
+ * Genera un ID único compatible con el formato de Langfuse
+ * @param {string} prefix - Prefijo para el ID según el tipo de entidad
+ * @returns {string} - ID único en formato compatible con Langfuse
+ */
+function generateId(prefix = '') {
+  // Para organizaciones y proyectos, usamos el formato de cuid que usa Langfuse
+  if (prefix === 'org' || prefix === 'prj') {
+    return cuid();
+  }
+  
+  // Para otros tipos de entidades, seguimos usando el formato anterior
+  const timestamp = Date.now().toString(36);
+  const randomStr = nanoid();
+  return `${prefix}_${timestamp}${randomStr}`;
+}
+
+/**
+ * Genera un API key con el formato requerido
+ * @param {string} prefix - Prefijo para la key (pk para pública, sk para secreta)
+ * @returns {string} - API key formateada
+ */
+function generateApiKey(prefix) {
+  // 32 bytes = 256 bits de entropía (muy seguro)
+  const randomBytes = crypto.randomBytes(16).toString('hex');
+  return `${prefix}_${randomBytes}`;
+}
+
+/**
+ * Genera un hash seguro para almacenar la clave secreta
+ * Usa un salt fijo "salt" para compatibilidad con Langfuse
+ * @param {string} secretKey - Clave secreta a hashear
+ * @returns {string} - Hash SHA-256 hexadecimal
+ */
+function hashSecretKey(secretKey) {
+  const salt = "salt"; // Salt fijo usado por Langfuse
+  return crypto.createHash('sha256').update(salt + secretKey).digest('hex');
+}
+
+module.exports = {
+  generateId,
+  generateApiKey,
+  hashSecretKey
+};
+
+================
+File: src/utils/logger.js
+================
+'use strict';
+
+const winston = require('winston');
+const config = require('../config');
+
+/**
+ * Configuración del formato de log según el entorno
+ */
+const formats = {
+  // Formato para desarrollo: colorizado y más legible
+  development: winston.format.combine(
+    winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+    winston.format.colorize(),
+    winston.format.printf(({ level, message, timestamp, ...meta }) => {
+      let metaStr = '';
+      if (Object.keys(meta).length > 0) {
+        // Mostrar metadatos en formato más simple sin profundidad excesiva
+        metaStr = JSON.stringify(meta, null, 0).replace(/[{}"']/g, '').replace(/,/g, ', ');
+        metaStr = metaStr ? ` - ${metaStr}` : '';
+      }
+      return `[${timestamp}] ${level}: ${message}${metaStr}`;
+    })
+  ),
+  
+  // Formato para producción: JSON estructurado para mejor análisis
+  production: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.json()
+  ),
+  
+  // Formato para tests: minimal
+  test: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.json()
+  )
+};
+
+/**
+ * Crear el logger con la configuración adecuada según entorno
+ */
+const logger = winston.createLogger({
+  level: config.logLevel || 'info',
+  format: formats[config.nodeEnv] || formats.development,
+  defaultMeta: { service: 'langfuse-admin-api' },
+  transports: [
+    // En test no hacemos log a consola a menos que sea error
+    ...(config.isTest
+      ? [
+          new winston.transports.Console({
+            level: 'error'
+          })
+        ]
+      : [
+          new winston.transports.Console()
+        ]),
+    
+    // En producción agregamos log a archivo de errores
+    ...(config.isProduction
+      ? [
+          new winston.transports.File({
+            filename: 'logs/error.log',
+            level: 'error',
+            maxsize: 5242880, // 5MB
+            maxFiles: 5,
+          }),
+          new winston.transports.File({
+            filename: 'logs/combined.log',
+            maxsize: 5242880, // 5MB
+            maxFiles: 5,
+          })
+        ]
+      : [])
+  ],
+  
+  // No detener la aplicación si hay error de log
+  exitOnError: false
+});
+
+/**
+ * Utilidades para logging contextual
+ */
+const createContextLogger = (context) => {
+  return {
+    debug: (message, meta = {}) => logger.debug(message, { ...meta, context }),
+    info: (message, meta = {}) => logger.info(message, { ...meta, context }),
+    warn: (message, meta = {}) => logger.warn(message, { ...meta, context }),
+    error: (message, meta = {}) => logger.error(message, { ...meta, context }),
+  };
+};
+
+module.exports = {
+  logger,
+  createContextLogger
+};
+
+================
+File: src/app.js
+================
+'use strict';
+
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const compression = require('compression');
+const rateLimit = require('express-rate-limit');
+const swaggerUi = require('swagger-ui-express');
+const YAML = require('yamljs');
+const path = require('path');
+const { errorHandler } = require('./middleware/error.middleware');
+const { requestLogger } = require('./middleware/request.middleware');
+const routes = require('./routes');
+
+// Crear instancia de Express
+const app = express();
+
+// Middlewares de seguridad y optimización
+app.use(helmet()); // Seguridad mediante cabeceras HTTP
+app.use(compression()); // Compresión gzip
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
+}));
+
+// Rate limiting para prevenir abusos
+if (process.env.NODE_ENV === 'production') {
+  app.use(rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutos
+    max: 100, // Límite de 100 solicitudes
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Demasiadas solicitudes, por favor intente más tarde' }
+  }));
+}
+
+// Middlewares para parsing
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+
+// Logging de solicitudes
+app.use(requestLogger);
+
+// Documentación API con Swagger
+if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_DOCS === 'true') {
+  const swaggerDocument = YAML.load(path.join(__dirname, '../docs/openapi.yaml'));
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+}
+
+// Rutas API
+app.use('/api', routes);
+
+// Página de documentación básica
+app.get('/', (req, res) => {
+  res.redirect('/api-docs');
+});
+
+// Error 404 para rutas no definidas
+app.use((req, res) => {
+  res.status(404).json({ error: 'Ruta no encontrada' });
+});
+
+// Manejador de errores global
+app.use(errorHandler);
+
+module.exports = app;
+
+================
+File: .dockerignore
+================
+# Dependencias y módulos de node
+node_modules
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# Tests
+coverage
+.nyc_output
+tests
+
+# Archivos de desarrollo
+.git
+.github
+.gitignore
+.editorconfig
+.eslintrc.js
+.eslintignore
+.prettierrc
+.prettierignore
+*.md
+!README.md
+
+# Variables de entorno y configuración local
+.env
+.env.*
+!.env.example
+
+# Logs
+logs
+*.log
+
+# Directorios y archivos específicos del IDE/editor
+.idea
+.vscode
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+================
+File: .env.example
+================
+# Configuración de entorno
+NODE_ENV=development
+PORT=3100
+
+# Seguridad
+API_KEY=admin-secret-key
+ENABLE_API_KEY_AUTH=true
+CORS_ORIGIN=*
+
+# Base de datos PostgreSQL
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=postgres
+DB_USER=postgres
+DB_PASS=postgres
+DB_SSL=false
+DB_POOL_MIN=2
+DB_POOL_MAX=10
+
+# Logging
+LOG_LEVEL=info
+ENABLE_REQUEST_LOGGING=true
+
+# Rate Limiting
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX=100
+
+# Documentación API
+ENABLE_DOCS=true
+
+================
+File: .eslintrc.js
+================
+module.exports = {
+    env: {
+      node: true,
+      commonjs: true,
+      es2021: true,
+      jest: true,
+    },
+    extends: [
+      'eslint:recommended',
+      'plugin:node/recommended',
+      'plugin:jest/recommended',
+      'prettier',
+    ],
+    plugins: ['jest', 'prettier'],
+    parserOptions: {
+      ecmaVersion: 2022,
+    },
+    rules: {
+      'prettier/prettier': 'error',
+      'no-console': 'warn',
+      'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      'node/no-unsupported-features/es-syntax': [
+        'error',
+        { ignores: ['modules'] },
+      ],
+      'jest/expect-expect': 'warn',
+      'node/no-unpublished-require': [
+        'error', 
+        { allowModules: ['supertest'] }
+      ],
+      'node/no-missing-require': 'error',
+      'node/no-extraneous-require': 'error',
+      'node/no-deprecated-api': 'warn',
+      'strict': ['error', 'global'],
+    },
+    overrides: [
+      {
+        files: ['tests/**/*.js', '**/*.test.js'],
+        rules: {
+          'node/no-unpublished-require': 'off',
+        },
+      },
+    ],
+  };
+
+================
+File: Dockerfile
+================
+# Imagen base con Node.js
+FROM node:18-alpine AS base
+
+# Crear directorio de la aplicación
+WORKDIR /app
+
+# Instalación de dependencias
+FROM base AS deps
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+# Compilación (si se necesitara)
+FROM base AS builder
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+# Producción
+FROM base AS runner
+ENV NODE_ENV production
+
+# Crear usuario para ejecutar la app (no usar root)
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 langfuse
+USER langfuse
+
+# Copiar los archivos de la aplicación
+COPY --from=builder --chown=langfuse:nodejs /app/package.json ./package.json
+COPY --from=builder --chown=langfuse:nodejs /app/index.js ./index.js
+COPY --from=builder --chown=langfuse:nodejs /app/docs ./docs
+COPY --from=builder --chown=langfuse:nodejs /app/src ./src
+COPY --from=deps --chown=langfuse:nodejs /app/node_modules ./node_modules
+
+# Crear directorio para logs (asegurando permisos)
+RUN mkdir -p logs && chown -R langfuse:nodejs logs
+
+# Puerto de la aplicación
+EXPOSE 3100
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+  CMD wget -qO- http://localhost:3100/api/health || exit 1
+
+# Comando para iniciar la aplicación
+CMD ["node", "index.js"]
+
+================
+File: index.js
+================
+#!/usr/bin/env node
+'use strict';
+
+// Carga de variables de entorno antes de cualquier importación
+require('dotenv').config();
+
+// Importar módulos
+const app = require('./src/app');
+const config = require('./src/config');
+const { logger } = require('./src/utils/logger');
+
+// Gestión de errores no capturados
+process.on('uncaughtException', (error) => {
+  logger.error('Error no capturado:', error);
+  // En producción, podríamos querer reiniciar el proceso con PM2 o similar
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Promesa rechazada no manejada:', reason);
+  // No cerramos el proceso aquí, solo registramos
+});
+
+// Función para iniciar el servidor
+async function startServer() {
+  try {
+    // Iniciar el servidor
+    const server = app.listen(config.port, () => {
+      logger.info(`
+🚀 Langfuse Admin API ejecutándose en puerto ${config.port}
+
+📝 Documentación: http://localhost:${config.port}/api-docs
+🔍 Estado: http://localhost:${config.port}/api/health
+
+Esta API está diseñada para uso administrativo y ofrece autenticación mediante API keys.
+      `);
+    });
+
+    // Gestión de señales del sistema operativo
+    const shutdown = async (signal) => {
+      logger.info(`${signal} recibido. Cerrando servidor HTTP y conexiones a base de datos...`);
+      server.close(() => {
+        logger.info('Servidor HTTP cerrado.');
+        // Aquí podríamos cerrar otras conexiones como la base de datos
+        process.exit(0);
+      });
+
+      // Timeout forzado por si no cierra correctamente
+      setTimeout(() => {
+        logger.error('No se pudo cerrar correctamente, forzando salida.');
+        process.exit(1);
+      }, 10000);
+    };
+
+    // Registro de manejadores de señal
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => shutdown('SIGINT'));
+  } catch (error) {
+    logger.error('Error al iniciar el servidor:', error);
+    process.exit(1);
+  }
+}
+
+// Iniciar el servidor
+startServer();
+
+================
+File: package.json
+================
+{
+  "name": "langfuse-admin-api",
+  "version": "1.0.0",
+  "description": "API de administración para Langfuse",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write '**/*.{js,json,md}'",
+    "prepare": "husky install",
+    "docker:build": "docker build -t langfuse-admin-api .",
+    "docker:run": "docker run -p 3100:3100 langfuse-admin-api"
+  },
+  "keywords": [
+    "langfuse",
+    "admin",
+    "api",
+    "node",
+    "express"
+  ],
+  "author": "Langfuse Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "compression": "^1.7.4",
+    "cors": "^2.8.5",
+    "crypto": "^1.0.1",
+    "cuid": "^2.1.8",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.1.5",
+    "helmet": "^7.0.0",
+    "joi": "^17.11.0",
+    "morgan": "^1.10.0",
+    "nanoid": "^3.3.6",
+    "pg": "^8.14.0",
+    "swagger-ui-express": "^5.0.0",
+    "uuid": "^11.1.0",
+    "winston": "^3.11.0",
+    "yamljs": "^0.3.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.56.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-jest": "^27.9.0",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-prettier": "^5.1.3",
+    "husky": "^9.0.11",
+    "jest": "^29.7.0",
+    "lint-staged": "^15.2.0",
+    "nodemon": "^3.0.3",
+    "prettier": "^3.2.5",
+    "supertest": "^6.3.4"
+  },
+  "lint-staged": {
+    "*.js": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md}": [
+      "prettier --write"
+    ]
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "coveragePathIgnorePatterns": [
+      "/node_modules/",
+      "/tests/"
+    ]
+  }
+}
+
+================
+File: README.md
+================
+# Langfuse Admin API
+
+API de administración para [Langfuse](https://langfuse.com) que permite gestionar organizaciones, proyectos y API keys.
+
+## 🚀 Características
+
+- ✅ Gestión completa de organizaciones y miembros
+- ✅ Administración de proyectos
+- ✅ Creación y gestión de API keys
+- ✅ Autenticación simple mediante API key
+- ✅ Documentación OpenAPI/Swagger
+- ✅ Arquitectura modular y robusta
+
+## 📋 Requisitos
+
+- Node.js >= 18
+- PostgreSQL >= 14
+
+## 🛠️ Instalación
+
+1. Clonar el repositorio
+
+```bash
+git clone https://github.com/tu-usuario/langfuse-admin-api.git
+cd langfuse-admin-api
+```
+
+2. Instalar dependencias
+
+```bash
+npm install
+```
+
+3. Configurar variables de entorno
+
+```bash
+cp .env.example .env
+# Editar .env con los valores apropiados
+```
+
+4. Iniciar el servidor
+
+```bash
+npm start
+```
+
+Para desarrollo:
+
+```bash
+npm run dev
+```
+
+## 📊 Estructura del Proyecto
+
+```
+src/
+ ├── config/         # Configuración centralizada
+ ├── controllers/    # Controladores de rutas
+ ├── middleware/     # Middleware Express
+ ├── models/         # Modelos de datos
+ ├── routes/         # Definición de rutas
+ ├── services/       # Lógica de negocio
+ ├── utils/          # Utilidades
+ └── app.js          # Punto de entrada Express
+```
+
+## 📚 Endpoints API
+
+La documentación completa está disponible en `/api-docs` cuando el servidor está en ejecución.
+
+### Organizaciones
+
+- `GET /api/organizations` - Listar organizaciones
+- `GET /api/organizations/:id` - Obtener organización por ID
+- `POST /api/organizations` - Crear una organización
+- `PUT /api/organizations/:id` - Actualizar una organización
+
+### Miembros de Organización
+
+- `GET /api/organizations/:id/members` - Listar miembros
+- `POST /api/organizations/:id/members` - Añadir miembro
+- `PUT /api/organizations/:orgId/members/:userId` - Actualizar rol
+- `DELETE /api/organizations/:orgId/members/:userId` - Eliminar miembro
+
+### Proyectos
+
+- `GET /api/projects` - Listar proyectos
+- `GET /api/projects/:id` - Obtener proyecto por ID
+- `POST /api/projects` - Crear un proyecto
+- `PUT /api/projects/:id` - Actualizar un proyecto
+- `DELETE /api/projects/:id` - Eliminar un proyecto
+
+### API Keys
+
+- `GET /api/projects/:id/api-keys` - Listar API keys
+- `POST /api/projects/:id/api-keys` - Crear API key
+- `DELETE /api/api-keys/:id` - Eliminar API key
+
+## 🧪 Tests
+
+Ejecutar los tests:
+
+```bash
+npm test
+```
+
+Con cobertura:
+
+```bash
+npm run test:coverage
+```
+
+## 🔧 Desarrollo
+
+Verificar código:
+
+```bash
+npm run lint
+```
+
+Formatear código:
+
+```bash
+npm run format
+```
+
+## 🐳 Docker
+
+Construir imagen:
+
+```bash
+npm run docker:build
+```
+
+Ejecutar contenedor:
+
+```bash
+npm run docker:run
+```
+
+## 📃 Licencia
+
+[MIT](LICENSE)
+
+
+
+================================================================
+End of Codebase
+================================================================

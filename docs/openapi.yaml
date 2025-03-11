@@ -1,0 +1,1006 @@
+openapi: 3.0.3
+info:
+  title: Langfuse Admin API
+  description: |
+    API de administración para Langfuse que permite gestionar organizaciones, proyectos y API keys.
+    Esta API está diseñada para uso administrativo con autenticación mediante API key.
+  version: 1.0.0
+  contact:
+    name: Langfuse Team
+    url: https://langfuse.com
+servers:
+  - url: http://localhost:3100/api
+    description: Servidor local de desarrollo
+  - url: https://admin-api.langfuse.com/api
+    description: Servidor de producción
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+  
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Código de error
+        message:
+          type: string
+          description: Mensaje de error
+        details:
+          type: object
+          description: Detalles adicionales del error (opcional)
+    
+    Organization:
+      type: object
+      properties:
+        id:
+          type: string
+          description: ID único de la organización
+        name:
+          type: string
+          description: Nombre de la organización
+        created_at:
+          type: string
+          format: date-time
+          description: Fecha de creación
+        updated_at:
+          type: string
+          format: date-time
+          description: Fecha de última actualización
+    
+    OrganizationMember:
+      type: object
+      properties:
+        id:
+          type: string
+          description: ID único de la membresía
+        user_id:
+          type: string
+          description: ID del usuario
+        role:
+          type: string
+          enum: [OWNER, ADMIN, VIEWER, NONE]
+          description: Rol del usuario en la organización
+        created_at:
+          type: string
+          format: date-time
+          description: Fecha de creación
+        updated_at:
+          type: string
+          format: date-time
+          description: Fecha de última actualización
+        name:
+          type: string
+          description: Nombre del usuario
+        email:
+          type: string
+          format: email
+          description: Email del usuario
+        image:
+          type: string
+          description: URL de imagen del usuario
+    
+    Project:
+      type: object
+      properties:
+        id:
+          type: string
+          description: ID único del proyecto
+        name:
+          type: string
+          description: Nombre del proyecto
+        org_id:
+          type: string
+          description: ID de la organización propietaria
+        created_at:
+          type: string
+          format: date-time
+          description: Fecha de creación
+        updated_at:
+          type: string
+          format: date-time
+          description: Fecha de última actualización
+    
+    ApiKey:
+      type: object
+      properties:
+        id:
+          type: string
+          description: ID único de la API key
+        created_at:
+          type: string
+          format: date-time
+          description: Fecha de creación
+        public_key:
+          type: string
+          description: Clave pública (para autenticación)
+        display_secret_key:
+          type: string
+          description: Versión truncada de la clave secreta
+        last_used_at:
+          type: string
+          format: date-time
+          description: Fecha de último uso
+        note:
+          type: string
+          description: Nota descriptiva (opcional)
+    
+    NewApiKey:
+      allOf:
+        - $ref: '#/components/schemas/ApiKey'
+        - type: object
+          properties:
+            secretKey:
+              type: string
+              description: Clave secreta completa (solo se muestra una vez)
+    
+    NewProject:
+      allOf:
+        - $ref: '#/components/schemas/Project'
+        - type: object
+          properties:
+            apiKeys:
+              type: object
+              properties:
+                publicKey:
+                  type: string
+                  description: Clave pública de API
+                secretKey:
+                  type: string
+                  description: Clave secreta de API (solo se muestra una vez)
+    
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ok, error]
+          description: Estado general del servicio
+        timestamp:
+          type: string
+          format: date-time
+          description: Fecha y hora de la verificación
+        service:
+          type: string
+          description: Nombre del servicio
+        version:
+          type: string
+          description: Versión del servicio
+        db:
+          type: object
+          properties:
+            status:
+              type: string
+              enum: [connected, error]
+              description: Estado de la conexión a la base de datos
+            time:
+              type: string
+              format: date-time
+              description: Fecha y hora del servidor de base de datos
+
+paths:
+  /health:
+    get:
+      summary: Verificar estado del servicio
+      description: Verifica el estado del servicio y la conexión a la base de datos
+      operationId: checkHealth
+      tags: [Monitoring]
+      responses:
+        '200':
+          description: Servicio funcionando correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+        '503':
+          description: Servicio no disponible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /health/db:
+    get:
+      summary: Verificar estado de la base de datos
+      description: Verifica solo el estado de la conexión a la base de datos
+      operationId: checkDatabaseHealth
+      tags: [Monitoring]
+      responses:
+        '200':
+          description: Base de datos funcionando correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+                  time:
+                    type: string
+                    format: date-time
+                  responseTime:
+                    type: string
+        '503':
+          description: Error de conexión a la base de datos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /organizations:
+    get:
+      summary: Listar organizaciones
+      description: Obtiene todas las organizaciones
+      operationId: getAllOrganizations
+      tags: [Organizations]
+      security:
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Lista de organizaciones
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Organization'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    post:
+      summary: Crear organización
+      description: Crea una nueva organización
+      operationId: createOrganization
+      tags: [Organizations]
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - userId
+              properties:
+                name:
+                  type: string
+                  description: Nombre de la organización
+                userId:
+                  type: string
+                  description: ID del usuario que será propietario de la organización
+      responses:
+        '201':
+          description: Organización creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        '400':
+          description: Datos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /organizations/{id}:
+    get:
+      summary: Obtener organización
+      description: Obtiene una organización por ID
+      operationId: getOrganizationById
+      tags: [Organizations]
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID de la organización
+      responses:
+        '200':
+          description: Datos de la organización
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        '404':
+          description: Organización no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    put:
+      summary: Actualizar organización
+      description: Actualiza una organización existente
+      operationId: updateOrganization
+      tags: [Organizations]
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID de la organización
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  description: Nuevo nombre de la organización
+      responses:
+        '200':
+          description: Organización actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        '400':
+          description: Datos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Organización no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /organizations/{id}/members:
+    get:
+      summary: Listar miembros
+      description: Obtiene los miembros de una organización
+      operationId: getOrganizationMembers
+      tags: [Organization Members]
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID de la organización
+      responses:
+        '200':
+          description: Lista de miembros
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OrganizationMember'
+        '404':
+          description: Organización no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    post:
+      summary: Añadir miembro
+      description: Añade un usuario a una organización
+      operationId: addOrganizationMember
+      tags: [Organization Members]
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID de la organización
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId
+              properties:
+                userId:
+                  type: string
+                  description: ID del usuario a añadir
+                role:
+                  type: string
+                  enum: [OWNER, ADMIN, VIEWER, NONE]
+                  default: VIEWER
+                  description: Rol del usuario en la organización
+      responses:
+        '201':
+          description: Usuario añadido a la organización
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationMember'
+        '400':
+          description: Datos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Organización o usuario no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: El usuario ya es miembro de esta organización
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Sin permisos suficientes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /organizations/{orgId}/members/{userId}:
+    put:
+      summary: Actualizar miembro
+      description: Actualiza el rol de un miembro en la organización
+      operationId: updateOrganizationMember
+      tags: [Organization Members]
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID de la organización
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID del usuario
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - role
+              properties:
+                role:
+                  type: string
+                  enum: [OWNER, ADMIN, VIEWER, NONE]
+                  description: Nuevo rol del usuario
+      responses:
+        '200':
+          description: Rol actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationMember'
+        '400':
+          description: Datos inválidos o intento de cambiar el rol del último propietario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Membresía no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Sin permisos suficientes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    delete:
+      summary: Eliminar miembro
+      description: Elimina un miembro de la organización
+      operationId: removeOrganizationMember
+      tags: [Organization Members]
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID de la organización
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID del usuario
+      responses:
+        '200':
+          description: Miembro eliminado correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Mensaje de confirmación
+        '400':
+          description: No se puede eliminar al último propietario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Membresía no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Sin permisos suficientes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /projects:
+    get:
+      summary: Listar proyectos
+      description: Obtiene todos los proyectos (filtrable por organización)
+      operationId: getAllProjects
+      tags: [Projects]
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      parameters:
+        - name: orgId
+          in: query
+          schema:
+            type: string
+          description: ID de la organización para filtrar (opcional)
+      responses:
+        '200':
+          description: Lista de proyectos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Project'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    post:
+      summary: Crear proyecto
+      description: Crea un nuevo proyecto y genera API keys
+      operationId: createProject
+      tags: [Projects]
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - orgId
+              properties:
+                name:
+                  type: string
+                  description: Nombre del proyecto
+                orgId:
+                  type: string
+                  description: ID de la organización
+      responses:
+        '201':
+          description: Proyecto creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NewProject'
+        '400':
+          description: Datos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Organización no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Sin permisos suficientes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /projects/{id}:
+    get:
+      summary: Obtener proyecto
+      description: Obtiene un proyecto por ID
+      operationId: getProjectById
+      tags: [Projects]
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID del proyecto
+      responses:
+        '200':
+          description: Datos del proyecto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '404':
+          description: Proyecto no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    put:
+      summary: Actualizar proyecto
+      description: Actualiza un proyecto existente
+      operationId: updateProject
+      tags: [Projects]
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID del proyecto
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  description: Nuevo nombre del proyecto
+      responses:
+        '200':
+          description: Proyecto actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '400':
+          description: Datos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Proyecto no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Sin permisos suficientes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    delete:
+      summary: Eliminar proyecto
+      description: Marca un proyecto como eliminado (soft delete)
+      operationId: deleteProject
+      tags: [Projects]
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID del proyecto
+      responses:
+        '200':
+          description: Proyecto eliminado correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Mensaje de confirmación
+        '404':
+          description: Proyecto no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Sin permisos suficientes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /projects/{id}/api-keys:
+    get:
+      summary: Listar API keys
+      description: Obtiene las API keys de un proyecto
+      operationId: getProjectApiKeys
+      tags: [API Keys]
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID del proyecto
+      responses:
+        '200':
+          description: Lista de API keys
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ApiKey'
+        '404':
+          description: Proyecto no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Sin permisos suficientes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    post:
+      summary: Crear API key
+      description: Crea una nueva API key para el proyecto
+      operationId: createApiKey
+      tags: [API Keys]
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID del proyecto
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note:
+                  type: string
+                  description: Descripción opcional
+      responses:
+        '201':
+          description: API key creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NewApiKey'
+        '404':
+          description: Proyecto no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Sin permisos suficientes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /api-keys/{id}:
+    delete:
+      summary: Eliminar API key
+      description: Elimina una API key
+      operationId: deleteApiKey
+      tags: [API Keys]
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID de la API key
+      responses:
+        '200':
+          description: API key eliminada correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Mensaje de confirmación
+        '404':
+          description: API key no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Sin permisos suficientes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+tags:
+  - name: Organizations
+    description: Gestión de organizaciones
+  - name: Organization Members
+    description: Gestión de miembros de organizaciones
+  - name: Projects
+    description: Gestión de proyectos
+  - name: API Keys
+    description: Gestión de API keys
+  - name: Monitoring
+    description: Endpoints de monitoreo y salud del servicio
+
+externalDocs:
+  description: Documentación adicional
+  url: https://docs.langfuse.com
