@@ -55,6 +55,7 @@ src/
     api-keys.controller.js
     health.controller.js
     organizations.controller.js
+    project-memberships.controller.js
     projects.controller.js
     users.controller.js
   middleware/
@@ -67,21 +68,25 @@ src/
     health.routes.js
     index.js
     organizations.routes.js
+    project-memberships.routes.js
     projects.routes.js
     users.routes.js
   services/
     api-keys.service.js
     database.service.js
     organizations.service.js
+    project-memberships.service.js
     projects.service.js
+    users.service.js
   utils/
+    config-checker.js
     errors.js
     id-generator.js
     logger.js
   app.js
 .dockerignore
-.env.example
 .eslintrc.js
+.gitignore
 Dockerfile
 index.js
 package.json
@@ -98,7 +103,7 @@ openapi: 3.0.3
 info:
   title: Langfuse Admin API
   description: |
-    API de administración para Langfuse que permite gestionar organizaciones, proyectos y API keys.
+    API de administración para Langfuse que permite gestionar organizaciones, proyectos, usuarios y API keys.
     Esta API está diseñada para uso administrativo con autenticación mediante API key.
   version: 1.0.0
   contact:
@@ -202,6 +207,94 @@ components:
           format: date-time
           description: Fecha de última actualización
     
+    ProjectMember:
+      type: object
+      properties:
+        project_id:
+          type: string
+          description: ID del proyecto
+        user_id:
+          type: string
+          description: ID del usuario
+        role:
+          type: string
+          enum: [OWNER, ADMIN, MEMBER, VIEWER]
+          description: Rol del usuario en el proyecto
+        created_at:
+          type: string
+          format: date-time
+          description: Fecha de creación
+        updated_at:
+          type: string
+          format: date-time
+          description: Fecha de última actualización
+        name:
+          type: string
+          description: Nombre del usuario
+        email:
+          type: string
+          format: email
+          description: Email del usuario
+        image:
+          type: string
+          description: URL de imagen del usuario
+    
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          description: ID único del usuario
+        name:
+          type: string
+          description: Nombre del usuario
+        email:
+          type: string
+          format: email
+          description: Email del usuario
+        image:
+          type: string
+          description: URL de imagen del usuario
+        created_at:
+          type: string
+          format: date-time
+          description: Fecha de creación
+        updated_at:
+          type: string
+          format: date-time
+          description: Fecha de última actualización
+        admin:
+          type: boolean
+          description: Si el usuario es administrador global
+        feature_flags:
+          type: array
+          items:
+            type: string
+          description: Flags de funcionalidades habilitadas para el usuario
+    
+    UsersList:
+      type: object
+      properties:
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+        pagination:
+          type: object
+          properties:
+            total:
+              type: integer
+              description: Número total de usuarios
+            page:
+              type: integer
+              description: Página actual
+            limit:
+              type: integer
+              description: Límite de resultados por página
+            pages:
+              type: integer
+              description: Número total de páginas
+    
     ApiKey:
       type: object
       properties:
@@ -225,6 +318,10 @@ components:
         note:
           type: string
           description: Nota descriptiva (opcional)
+        expires_at:
+          type: string
+          format: date-time
+          description: Fecha de expiración (opcional)
     
     NewApiKey:
       allOf:
@@ -329,6 +426,246 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   
+  /users:
+    get:
+      summary: Listar usuarios
+      description: Obtiene todos los usuarios con paginación y búsqueda
+      operationId: getUsers
+      tags: [Users]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Término de búsqueda para nombre o email
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+          description: Límite de resultados por página
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+          description: Número de página
+      responses:
+        '200':
+          description: Lista de usuarios
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsersList'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    post:
+      summary: Crear usuario
+      description: Crea un nuevo usuario
+      operationId: createUser
+      tags: [Users]
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - email
+              properties:
+                name:
+                  type: string
+                  description: Nombre del usuario
+                email:
+                  type: string
+                  format: email
+                  description: Email del usuario
+                password:
+                  type: string
+                  description: Contraseña (opcional)
+                admin:
+                  type: boolean
+                  description: Si el usuario es administrador
+      responses:
+        '201':
+          description: Usuario creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Datos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Email ya registrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /users/{id}:
+    get:
+      summary: Obtener usuario
+      description: Obtiene un usuario por ID
+      operationId: getUserById
+      tags: [Users]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID del usuario
+      responses:
+        '200':
+          description: Datos del usuario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: Usuario no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    put:
+      summary: Actualizar usuario
+      description: Actualiza un usuario existente
+      operationId: updateUser
+      tags: [Users]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID del usuario
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Nombre del usuario
+                email:
+                  type: string
+                  format: email
+                  description: Email del usuario
+                image:
+                  type: string
+                  description: URL de imagen del usuario
+                feature_flags:
+                  type: array
+                  items:
+                    type: string
+                  description: Flags de funcionalidades
+                admin:
+                  type: boolean
+                  description: Si el usuario es administrador
+      responses:
+        '200':
+          description: Usuario actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Datos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Usuario no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    delete:
+      summary: Eliminar usuario
+      description: Elimina un usuario (verificando dependencias)
+      operationId: deleteUser
+      tags: [Users]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID del usuario
+      responses:
+        '200':
+          description: Usuario eliminado correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Mensaje de confirmación
+        '400':
+          description: No se puede eliminar (tiene dependencias)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Usuario no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
   /organizations:
     get:
       summary: Listar organizaciones
@@ -360,7 +697,6 @@ paths:
       tags: [Organizations]
       security:
         - ApiKeyAuth: []
-        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -405,7 +741,6 @@ paths:
       tags: [Organizations]
       security:
         - ApiKeyAuth: []
-        - BearerAuth: []
       parameters:
         - name: id
           in: path
@@ -440,7 +775,6 @@ paths:
       tags: [Organizations]
       security:
         - ApiKeyAuth: []
-        - BearerAuth: []
       parameters:
         - name: id
           in: path
@@ -494,7 +828,6 @@ paths:
       tags: [Organization Members]
       security:
         - ApiKeyAuth: []
-        - BearerAuth: []
       parameters:
         - name: id
           in: path
@@ -531,7 +864,6 @@ paths:
       tags: [Organization Members]
       security:
         - ApiKeyAuth: []
-        - BearerAuth: []
       parameters:
         - name: id
           in: path
@@ -587,12 +919,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-        '403':
-          description: Sin permisos suficientes
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
   
   /organizations/{orgId}/members/{userId}:
     put:
@@ -602,7 +928,6 @@ paths:
       tags: [Organization Members]
       security:
         - ApiKeyAuth: []
-        - BearerAuth: []
       parameters:
         - name: orgId
           in: path
@@ -654,12 +979,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-        '403':
-          description: Sin permisos suficientes
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
     
     delete:
       summary: Eliminar miembro
@@ -668,7 +987,6 @@ paths:
       tags: [Organization Members]
       security:
         - ApiKeyAuth: []
-        - BearerAuth: []
       parameters:
         - name: orgId
           in: path
@@ -711,12 +1029,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-        '403':
-          description: Sin permisos suficientes
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
   
   /projects:
     get:
@@ -726,7 +1038,6 @@ paths:
       tags: [Projects]
       security:
         - ApiKeyAuth: []
-        - BearerAuth: []
       parameters:
         - name: orgId
           in: query
@@ -756,7 +1067,6 @@ paths:
       tags: [Projects]
       security:
         - ApiKeyAuth: []
-        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -798,12 +1108,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-        '403':
-          description: Sin permisos suficientes
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
   
   /projects/{id}:
     get:
@@ -813,7 +1117,6 @@ paths:
       tags: [Projects]
       security:
         - ApiKeyAuth: []
-        - BearerAuth: []
       parameters:
         - name: id
           in: path
@@ -848,7 +1151,6 @@ paths:
       tags: [Projects]
       security:
         - ApiKeyAuth: []
-        - BearerAuth: []
       parameters:
         - name: id
           in: path
@@ -893,12 +1195,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-        '403':
-          description: Sin permisos suficientes
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
     
     delete:
       summary: Eliminar proyecto
@@ -907,7 +1203,6 @@ paths:
       tags: [Projects]
       security:
         - ApiKeyAuth: []
-        - BearerAuth: []
       parameters:
         - name: id
           in: path
@@ -938,8 +1233,333 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-        '403':
-          description: Sin permisos suficientes
+  
+  /projects/{projectId}/members:
+    get:
+      summary: Listar miembros del proyecto
+      description: Obtiene todos los miembros de un proyecto
+      operationId: getProjectMembers
+      tags: [Project Members]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID del proyecto
+      responses:
+        '200':
+          description: Lista de miembros
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProjectMember'
+        '404':
+          description: Proyecto no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    post:
+      summary: Añadir miembro al proyecto
+      description: Añade un usuario a un proyecto
+      operationId: addProjectMember
+      tags: [Project Members]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID del proyecto
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId
+              properties:
+                userId:
+                  type: string
+                  description: ID del usuario a añadir
+                role:
+                  type: string
+                  enum: [OWNER, ADMIN, MEMBER, VIEWER]
+                  default: VIEWER
+                  description: Rol del usuario en el proyecto
+      responses:
+        '201':
+          description: Usuario añadido al proyecto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectMember'
+        '400':
+          description: Datos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Proyecto o usuario no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: El usuario ya es miembro de este proyecto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /projects/{projectId}/members/batch:
+    post:
+      summary: Añadir múltiples miembros al proyecto
+      description: Añade varios usuarios a un proyecto en una sola operación
+      operationId: addBatchProjectMembers
+      tags: [Project Members]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID del proyecto
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - members
+              properties:
+                members:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - userId
+                    properties:
+                      userId:
+                        type: string
+                        description: ID del usuario
+                      role:
+                        type: string
+                        enum: [OWNER, ADMIN, MEMBER, VIEWER]
+                        default: VIEWER
+                        description: Rol del usuario
+      responses:
+        '201':
+          description: Resultado de la operación por lotes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ProjectMember'
+                    description: Miembros añadidos correctamente
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId:
+                          type: string
+                        error:
+                          type: string
+                    description: Errores al añadir miembros
+        '400':
+          description: Datos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Proyecto no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /projects/{projectId}/members/{userId}:
+    get:
+      summary: Obtener miembro del proyecto
+      description: Obtiene detalles de un miembro específico del proyecto
+      operationId: getProjectMember
+      tags: [Project Members]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID del proyecto
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID del usuario
+      responses:
+        '200':
+          description: Datos del miembro
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectMember'
+        '404':
+          description: Membresía no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    put:
+      summary: Actualizar miembro del proyecto
+      description: Actualiza el rol de un miembro en el proyecto
+      operationId: updateProjectMember
+      tags: [Project Members]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID del proyecto
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID del usuario
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - role
+              properties:
+                role:
+                  type: string
+                  enum: [OWNER, ADMIN, MEMBER, VIEWER]
+                  description: Nuevo rol del usuario
+      responses:
+        '200':
+          description: Rol actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectMember'
+        '400':
+          description: Datos inválidos o intento de cambiar el rol del último propietario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Membresía no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    delete:
+      summary: Eliminar miembro del proyecto
+      description: Elimina un miembro del proyecto
+      operationId: removeProjectMember
+      tags: [Project Members]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID del proyecto
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID del usuario
+      responses:
+        '200':
+          description: Miembro eliminado correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Mensaje de confirmación
+        '400':
+          description: No se puede eliminar al último propietario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Membresía no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
           content:
             application/json:
               schema:
@@ -953,7 +1573,6 @@ paths:
       tags: [API Keys]
       security:
         - ApiKeyAuth: []
-        - BearerAuth: []
       parameters:
         - name: id
           in: path
@@ -982,12 +1601,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-        '403':
-          description: Sin permisos suficientes
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
     
     post:
       summary: Crear API key
@@ -996,7 +1609,6 @@ paths:
       tags: [API Keys]
       security:
         - ApiKeyAuth: []
-        - BearerAuth: []
       parameters:
         - name: id
           in: path
@@ -1013,6 +1625,10 @@ paths:
                 note:
                   type: string
                   description: Descripción opcional
+                expiresAt:
+                  type: string
+                  format: date-time
+                  description: Fecha de expiración opcional
       responses:
         '201':
           description: API key creada
@@ -1032,14 +1648,94 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-        '403':
-          description: Sin permisos suficientes
+  
+  /api-keys/expired:
+    get:
+      summary: Listar API keys expiradas
+      description: Obtiene todas las API keys que han expirado
+      operationId: getExpiredApiKeys
+      tags: [API Keys]
+      security:
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Lista de API keys expiradas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ApiKey'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    delete:
+      summary: Eliminar API keys expiradas
+      description: Elimina todas las API keys expiradas
+      operationId: cleanupExpiredApiKeys
+      tags: [API Keys]
+      security:
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: API keys expiradas eliminadas correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Mensaje de confirmación
+                  count:
+                    type: integer
+                    description: Número de API keys eliminadas
+        '401':
+          description: No autorizado
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
   
   /api-keys/{id}:
+    get:
+      summary: Obtener API key
+      description: Obtiene detalles de una API key específica
+      operationId: getApiKeyById
+      tags: [API Keys]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID de la API key
+      responses:
+        '200':
+          description: Detalles de la API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKey'
+        '404':
+          description: API key no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
     delete:
       summary: Eliminar API key
       description: Elimina una API key
@@ -1047,7 +1743,6 @@ paths:
       tags: [API Keys]
       security:
         - ApiKeyAuth: []
-        - BearerAuth: []
       parameters:
         - name: id
           in: path
@@ -1078,8 +1773,149 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-        '403':
-          description: Sin permisos suficientes
+  
+  /api-keys/{id}/regenerate:
+    post:
+      summary: Regenerar API key
+      description: Regenera una API key existente
+      operationId: regenerateApiKey
+      tags: [API Keys]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID de la API key
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                expiresAt:
+                  type: string
+                  format: date-time
+                  description: Nueva fecha de expiración (opcional)
+      responses:
+        '200':
+          description: API key regenerada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NewApiKey'
+        '404':
+          description: API key no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /api-keys/{id}/expiration:
+    put:
+      summary: Actualizar expiración de API key
+      description: Actualiza la fecha de expiración de una API key
+      operationId: updateApiKeyExpiration
+      tags: [API Keys]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID de la API key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - expiresAt
+              properties:
+                expiresAt:
+                  type: string
+                  format: date-time
+                  nullable: true
+                  description: Nueva fecha de expiración (null para eliminar)
+      responses:
+        '200':
+          description: Expiración actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKey'
+        '400':
+          description: Datos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: API key no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /api-keys/{id}/note:
+    put:
+      summary: Actualizar nota de API key
+      description: Actualiza la nota descriptiva de una API key
+      operationId: updateApiKeyNote
+      tags: [API Keys]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID de la API key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - note
+              properties:
+                note:
+                  type: string
+                  description: Nueva nota descriptiva
+      responses:
+        '200':
+          description: Nota actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKey'
+        '404':
+          description: API key no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
           content:
             application/json:
               schema:
@@ -1092,8 +1928,12 @@ tags:
     description: Gestión de miembros de organizaciones
   - name: Projects
     description: Gestión de proyectos
+  - name: Project Members
+    description: Gestión de miembros de proyectos
   - name: API Keys
     description: Gestión de API keys
+  - name: Users
+    description: Gestión de usuarios
   - name: Monitoring
     description: Endpoints de monitoreo y salud del servicio
 
@@ -1254,10 +2094,10 @@ const getApiKeyById = asyncHandler(async (req, res) => {
  */
 const createApiKey = asyncHandler(async (req, res) => {
   const { id: projectId } = req.params;
-  const { note } = req.body;
+  const { note, expiresAt } = req.body;
   logger.info(`Creando nueva API key para proyecto: ${projectId}`);
   
-  const newApiKey = await apiKeysService.create(projectId, { note });
+  const newApiKey = await apiKeysService.create(projectId, { note, expiresAt });
   
   res.status(201).json(newApiKey);
 });
@@ -1268,11 +2108,40 @@ const createApiKey = asyncHandler(async (req, res) => {
  */
 const regenerateApiKey = asyncHandler(async (req, res) => {
   const { id } = req.params;
+  const { expiresAt } = req.body;
   logger.info(`Regenerando API key: ${id}`);
   
-  const regeneratedApiKey = await apiKeysService.regenerate(id);
+  const regeneratedApiKey = await apiKeysService.regenerate(id, { expiresAt });
   
   res.json(regeneratedApiKey);
+});
+
+/**
+ * @route PUT /api/api-keys/:id/expiration
+ * @description Actualizar la fecha de expiración de una API key
+ */
+const updateApiKeyExpiration = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { expiresAt } = req.body;
+  logger.info(`Actualizando expiración de API key: ${id}`);
+  
+  const apiKey = await apiKeysService.updateExpiration(id, expiresAt);
+  
+  res.json(apiKey);
+});
+
+/**
+ * @route PUT /api/api-keys/:id/note
+ * @description Actualizar la nota de una API key
+ */
+const updateApiKeyNote = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { note } = req.body;
+  logger.info(`Actualizando nota de API key: ${id}`);
+  
+  const apiKey = await apiKeysService.updateNote(id, note);
+  
+  res.json(apiKey);
 });
 
 /**
@@ -1288,12 +2157,43 @@ const deleteApiKey = asyncHandler(async (req, res) => {
   res.json({ message: 'API key eliminada correctamente' });
 });
 
+/**
+ * @route GET /api/api-keys/expired
+ * @description Listar todas las API keys expiradas
+ */
+const getExpiredApiKeys = asyncHandler(async (req, res) => {
+  logger.info('Obteniendo API keys expiradas');
+  
+  const expiredKeys = await apiKeysService.getExpired();
+  
+  res.json(expiredKeys);
+});
+
+/**
+ * @route DELETE /api/api-keys/expired
+ * @description Eliminar todas las API keys expiradas
+ */
+const cleanupExpiredApiKeys = asyncHandler(async (req, res) => {
+  logger.info('Eliminando API keys expiradas');
+  
+  const count = await apiKeysService.cleanupExpired();
+  
+  res.json({ 
+    message: `${count} API keys expiradas eliminadas correctamente`,
+    count
+  });
+});
+
 module.exports = {
   getProjectApiKeys,
   getApiKeyById,
   createApiKey,
   deleteApiKey,
-  regenerateApiKey
+  regenerateApiKey,
+  updateApiKeyExpiration,
+  updateApiKeyNote,
+  getExpiredApiKeys,
+  cleanupExpiredApiKeys
 };
 
 ================
@@ -1329,11 +2229,27 @@ const checkHealth = asyncHandler(async (req, res) => {
   
   // Verificar base de datos
   try {
-    const dbResult = await db.query('SELECT NOW() as time');
-    healthCheck.db = {
-      status: 'connected',
-      time: dbResult[0].time,
-    };
+    // Use the checkConnection method from the database service
+    const dbStatus = await db.checkConnection();
+    
+    if (dbStatus.status === 'connected') {
+      healthCheck.db = {
+        status: 'connected',
+        time: dbStatus.time,
+      };
+    } else {
+      healthCheck.db = {
+        status: 'error',
+        error: process.env.NODE_ENV === 'production' 
+          ? 'Error de conexión' 
+          : dbStatus.error,
+        code: dbStatus.code
+      };
+      healthCheck.status = 'error';
+      
+      logger.error('Error al verificar base de datos:', dbStatus);
+      return res.status(503).json(healthCheck);
+    }
   } catch (error) {
     logger.error('Error al verificar base de datos:', error);
     healthCheck.db = {
@@ -1341,6 +2257,7 @@ const checkHealth = asyncHandler(async (req, res) => {
       error: process.env.NODE_ENV === 'production' 
         ? 'Error de conexión' 
         : error.message,
+      code: error.code
     };
     healthCheck.status = 'error';
     
@@ -1369,15 +2286,25 @@ const checkDatabaseHealth = asyncHandler(async (req, res) => {
   logger.debug('Verificando estado de la base de datos');
   
   try {
-    const start = Date.now();
-    const dbResult = await db.query('SELECT NOW() as time');
-    const duration = Date.now() - start;
+    // Use the checkConnection method from the database service
+    const dbStatus = await db.checkConnection();
     
-    res.json({
-      status: 'ok',
-      time: dbResult[0].time,
-      responseTime: `${duration}ms`,
-    });
+    if (dbStatus.status === 'connected') {
+      res.json({
+        status: 'ok',
+        time: dbStatus.time,
+        responseTime: dbStatus.responseTime || 'N/A',
+      });
+    } else {
+      logger.error('Error al verificar base de datos:', dbStatus);
+      
+      res.status(503).json({
+        status: 'error',
+        message: 'Error de conexión a la base de datos',
+        error: process.env.NODE_ENV === 'production' ? undefined : dbStatus.error,
+        code: dbStatus.code
+      });
+    }
   } catch (error) {
     logger.error('Error al verificar base de datos:', error);
     
@@ -1385,6 +2312,7 @@ const checkDatabaseHealth = asyncHandler(async (req, res) => {
       status: 'error',
       message: 'Error de conexión a la base de datos',
       error: process.env.NODE_ENV === 'production' ? undefined : error.message,
+      code: error.code
     });
   }
 });
@@ -1533,6 +2461,113 @@ module.exports = {
 };
 
 ================
+File: src/controllers/project-memberships.controller.js
+================
+'use strict';
+
+const { asyncHandler } = require('../middleware/error.middleware');
+const { NotFoundError } = require('../utils/errors');
+const projectMembershipsService = require('../services/project-memberships.service');
+const { createContextLogger } = require('../utils/logger');
+
+// Logger contextual para este controlador
+const logger = createContextLogger('project-memberships-controller');
+
+/**
+ * @route GET /api/projects/:projectId/members
+ * @description Listar todos los miembros de un proyecto
+ */
+const getProjectMembers = asyncHandler(async (req, res) => {
+  const { projectId } = req.params;
+  logger.info(`Obteniendo miembros del proyecto: ${projectId}`);
+  
+  const members = await projectMembershipsService.getByProject(projectId);
+  
+  res.json(members);
+});
+
+/**
+ * @route POST /api/projects/:projectId/members
+ * @description Añadir un miembro a un proyecto
+ */
+const addProjectMember = asyncHandler(async (req, res) => {
+  const { projectId } = req.params;
+  const { userId, role = 'VIEWER' } = req.body;
+  logger.info(`Añadiendo usuario ${userId} al proyecto ${projectId} con rol ${role}`);
+  
+  const membership = await projectMembershipsService.addMember(projectId, userId, role);
+  
+  res.status(201).json(membership);
+});
+
+/**
+ * @route GET /api/projects/:projectId/members/:userId
+ * @description Obtener detalles de un miembro específico del proyecto
+ */
+const getProjectMember = asyncHandler(async (req, res) => {
+  const { projectId, userId } = req.params;
+  logger.info(`Obteniendo detalles de membresía: ${userId} en proyecto ${projectId}`);
+  
+  const membership = await projectMembershipsService.getMember(projectId, userId);
+  
+  if (!membership) {
+    throw new NotFoundError('Membresía de proyecto');
+  }
+  
+  res.json(membership);
+});
+
+/**
+ * @route PUT /api/projects/:projectId/members/:userId
+ * @description Actualizar rol de un miembro en el proyecto
+ */
+const updateProjectMember = asyncHandler(async (req, res) => {
+  const { projectId, userId } = req.params;
+  const { role } = req.body;
+  logger.info(`Actualizando rol de usuario ${userId} en proyecto ${projectId} a ${role}`);
+  
+  const membership = await projectMembershipsService.updateMember(projectId, userId, role);
+  
+  res.json(membership);
+});
+
+/**
+ * @route DELETE /api/projects/:projectId/members/:userId
+ * @description Eliminar un miembro del proyecto
+ */
+const removeProjectMember = asyncHandler(async (req, res) => {
+  const { projectId, userId } = req.params;
+  logger.info(`Eliminando usuario ${userId} del proyecto ${projectId}`);
+  
+  await projectMembershipsService.removeMember(projectId, userId);
+  
+  res.json({ message: 'Miembro eliminado correctamente del proyecto' });
+});
+
+/**
+ * @route POST /api/projects/:projectId/members/batch
+ * @description Añadir múltiples miembros a un proyecto
+ */
+const addBatchProjectMembers = asyncHandler(async (req, res) => {
+  const { projectId } = req.params;
+  const { members } = req.body;
+  logger.info(`Añadiendo ${members.length} miembros al proyecto ${projectId}`);
+  
+  const result = await projectMembershipsService.addBatchMembers(projectId, members);
+  
+  res.status(201).json(result);
+});
+
+module.exports = {
+  getProjectMembers,
+  addProjectMember,
+  getProjectMember,
+  updateProjectMember,
+  removeProjectMember,
+  addBatchProjectMembers
+};
+
+================
 File: src/controllers/projects.controller.js
 ================
 'use strict';
@@ -1633,8 +2668,10 @@ File: src/controllers/users.controller.js
 'use strict';
 
 const { asyncHandler } = require('../middleware/error.middleware');
+const { NotFoundError } = require('../utils/errors');
 const { db } = require('../services/database.service');
 const { createContextLogger } = require('../utils/logger');
+const usersService = require('../services/users.service');
 
 // Logger contextual para este controlador
 const logger = createContextLogger('users-controller');
@@ -1644,27 +2681,91 @@ const logger = createContextLogger('users-controller');
  * @description Listar usuarios disponibles (para asignar a organizaciones)
  */
 const getUsers = asyncHandler(async (req, res) => {
-  const { search, limit = 10 } = req.query;
+  const { search, limit = 10, page = 1 } = req.query;
   logger.info('Obteniendo lista de usuarios');
   
-  let query = 'SELECT id, name, email FROM users';
-  const params = [];
-  
-  if (search) {
-    query += ' WHERE name ILIKE $1 OR email ILIKE $1';
-    params.push(`%${search}%`);
-  }
-  
-  query += ' ORDER BY name LIMIT $' + (params.length + 1);
-  params.push(parseInt(limit, 10));
-  
-  const users = await db.query(query, params);
+  const users = await usersService.getAll({ search, limit, page });
   
   res.json(users);
 });
 
+/**
+ * @route GET /api/users/:id
+ * @description Obtener detalles de un usuario específico
+ */
+const getUserById = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  logger.info(`Obteniendo usuario con ID: ${id}`);
+  
+  const user = await usersService.getById(id);
+  
+  if (!user) {
+    throw new NotFoundError('Usuario');
+  }
+  
+  res.json(user);
+});
+
+/**
+ * @route POST /api/users
+ * @description Crear un nuevo usuario
+ */
+const createUser = asyncHandler(async (req, res) => {
+  const { name, email, password } = req.body;
+  logger.info(`Creando nuevo usuario: ${email}`);
+  
+  const newUser = await usersService.create({ 
+    name, 
+    email, 
+    password
+  });
+  
+  res.status(201).json(newUser);
+});
+
+/**
+ * @route PUT /api/users/:id
+ * @description Actualizar un usuario existente
+ */
+const updateUser = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { name, email, image, feature_flags, admin } = req.body;
+  logger.info(`Actualizando usuario con ID: ${id}`);
+  
+  const updatedUser = await usersService.update(id, { 
+    name, 
+    email, 
+    image, 
+    feature_flags, 
+    admin 
+  });
+  
+  if (!updatedUser) {
+    throw new NotFoundError('Usuario');
+  }
+  
+  res.json(updatedUser);
+});
+
+/**
+ * @route DELETE /api/users/:id
+ * @description Eliminar un usuario (verificando dependencias)
+ */
+const deleteUser = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  logger.info(`Eliminando usuario con ID: ${id}`);
+  
+  await usersService.delete(id);
+  
+  res.json({ message: 'Usuario eliminado correctamente' });
+});
+
 module.exports = {
-  getUsers
+  getUsers,
+  getUserById,
+  createUser,
+  updateUser,
+  deleteUser
 };
 
 ================
@@ -1675,7 +2776,7 @@ File: src/middleware/auth.middleware.js
 const crypto = require('crypto');
 const config = require('../config');
 const { AuthenticationError, AuthorizationError } = require('../utils/errors');
-const dbService = require('../services/database.service');
+const { db } = require('../services/database.service'); // Fix: Import db directly
 const { logger } = require('../utils/logger');
 
 /**
@@ -1715,7 +2816,8 @@ const validateProjectApiKey = async (req, res, next) => {
   
   try {
     // Buscar la API key por su clave pública
-    const apiKey = await dbService.queryOne(
+    // Fix: Use db.queryOne instead of dbService.queryOne
+    const apiKey = await db.queryOne(
       'SELECT project_id, hashed_secret_key FROM api_keys WHERE public_key = $1',
       [publicKey]
     );
@@ -1732,7 +2834,8 @@ const validateProjectApiKey = async (req, res, next) => {
     }
     
     // Buscar el proyecto
-    const project = await dbService.queryOne(
+    // Fix: Use db.queryOne instead of dbService.queryOne
+    const project = await db.queryOne(
       'SELECT id, org_id, deleted_at FROM projects WHERE id = $1',
       [apiKey.project_id]
     );
@@ -1742,7 +2845,8 @@ const validateProjectApiKey = async (req, res, next) => {
     }
     
     // Actualizar último uso de la API key
-    await dbService.query(
+    // Fix: Use db.query instead of dbService.query
+    await db.query(
       'UPDATE api_keys SET last_used_at = CURRENT_TIMESTAMP WHERE public_key = $1',
       [publicKey]
     );
@@ -2043,12 +3147,15 @@ const router = express.Router();
 const { validate, Joi, commonSchemas } = require('../middleware/validation.middleware');
 const apiKeysController = require('../controllers/api-keys.controller');
 const { NotFoundError } = require('../utils/errors');
-const dbService = require('../services/database.service');
+const { db } = require('../services/database.service');
 
 // Esquemas de validación
 const schemas = {
   idParam: Joi.object({
-    id: commonSchemas.id.required(),
+    id: commonSchemas.id.required()
+      .messages({
+        'any.required': 'El ID de API key es requerido'
+      }),
   }),
   
   createApiKey: Joi.object({
@@ -2056,66 +3163,92 @@ const schemas = {
       .messages({
         'string.max': 'La nota no puede exceder {#limit} caracteres'
       }),
+    expiresAt: Joi.date().iso().min('now').optional()
+      .messages({
+        'date.base': 'Fecha de expiración inválida',
+        'date.min': 'La fecha de expiración debe ser futura'
+      })
   }),
+  
+  regenerateApiKey: Joi.object({
+    expiresAt: Joi.date().iso().min('now').allow(null).optional()
+      .messages({
+        'date.base': 'Fecha de expiración inválida',
+        'date.min': 'La fecha de expiración debe ser futura'
+      })
+  }),
+  
+  updateExpiration: Joi.object({
+    expiresAt: Joi.date().iso().min('now').allow(null).required()
+      .messages({
+        'date.base': 'Fecha de expiración inválida',
+        'date.min': 'La fecha de expiración debe ser futura',
+        'any.required': 'La fecha de expiración es requerida'
+      })
+  }),
+  
+  updateNote: Joi.object({
+    note: Joi.string().trim().allow('').max(255).required()
+      .messages({
+        'string.max': 'La nota no puede exceder {#limit} caracteres',
+        'any.required': 'La nota es requerida'
+      })
+  })
 };
 
-// Ruta para obtener detalles de una API key
+// Middleware para verificar que una API key existe
+const checkApiKeyExists = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const apiKeyInfo = await db.queryOne(
+      `SELECT ak.id 
+       FROM api_keys ak
+       JOIN projects p ON ak.project_id = p.id 
+       WHERE ak.id = $1 AND p.deleted_at IS NULL`,
+      [id]
+    );
+    
+    if (!apiKeyInfo) {
+      throw new NotFoundError('API key');
+    }
+    
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Rutas específicas para API keys
+router.get('/expired', apiKeysController.getExpiredApiKeys);
+router.delete('/expired', apiKeysController.cleanupExpiredApiKeys);
+
+// Rutas para obtener/eliminar/actualizar API keys específicas
 router.get('/:id', 
   validate({ params: schemas.idParam }),
   apiKeysController.getApiKeyById
 );
 
-// Ruta para regenerar una API key
 router.post('/:id/regenerate', 
-  validate({ params: schemas.idParam }),
-  // Verificar que la API key existe
-  async (req, res, next) => {
-    try {
-      const { id } = req.params;
-      const apiKeyInfo = await dbService.queryOne(
-        `SELECT ak.id 
-         FROM api_keys ak
-         JOIN projects p ON ak.project_id = p.id 
-         WHERE ak.id = $1 AND p.deleted_at IS NULL`,
-        [id]
-      );
-      
-      if (!apiKeyInfo) {
-        throw new NotFoundError('API key');
-      }
-      
-      next();
-    } catch (error) {
-      next(error);
-    }
-  },
+  validate({ params: schemas.idParam, body: schemas.regenerateApiKey }),
+  checkApiKeyExists,
   apiKeysController.regenerateApiKey
 );
 
-// Ruta para eliminar una API key
+router.put('/:id/expiration', 
+  validate({ params: schemas.idParam, body: schemas.updateExpiration }),
+  checkApiKeyExists,
+  apiKeysController.updateApiKeyExpiration
+);
+
+router.put('/:id/note', 
+  validate({ params: schemas.idParam, body: schemas.updateNote }),
+  checkApiKeyExists,
+  apiKeysController.updateApiKeyNote
+);
+
 router.delete('/:id', 
   validate({ params: schemas.idParam }),
-  // Verificar que la API key existe
-  async (req, res, next) => {
-    try {
-      const { id } = req.params;
-      const apiKeyInfo = await dbService.queryOne(
-        `SELECT ak.id 
-         FROM api_keys ak
-         JOIN projects p ON ak.project_id = p.id 
-         WHERE ak.id = $1 AND p.deleted_at IS NULL`,
-        [id]
-      );
-      
-      if (!apiKeyInfo) {
-        throw new NotFoundError('API key');
-      }
-      
-      next();
-    } catch (error) {
-      next(error);
-    }
-  },
+  checkApiKeyExists,
   apiKeysController.deleteApiKey
 );
 
@@ -2156,6 +3289,7 @@ const { validateAdminApiKey } = require('../middleware/auth.middleware');
 const organizationsRoutes = require('./organizations.routes');
 const projectsRoutes = require('./projects.routes');
 const usersRoutes = require('./users.routes');
+const apiKeysRoutes = require('./api-keys.routes');
 const healthRoutes = require('./health.routes');
 
 // Endpoint de estado (no requiere autenticación)
@@ -2169,6 +3303,7 @@ router.use(validateAdminApiKey);
 router.use('/organizations', organizationsRoutes);
 router.use('/projects', projectsRoutes);
 router.use('/users', usersRoutes);
+router.use('/api-keys', apiKeysRoutes);
 
 module.exports = router;
 
@@ -2274,6 +3409,121 @@ router.delete('/:orgId/members/:userId',
 module.exports = router;
 
 ================
+File: src/routes/project-memberships.routes.js
+================
+'use strict';
+
+const express = require('express');
+const router = express.Router({ mergeParams: true }); // Para acceder a projectId de la ruta padre
+const { validate, Joi, commonSchemas } = require('../middleware/validation.middleware');
+const projectMembershipsController = require('../controllers/project-memberships.controller');
+
+// Esquemas de validación
+const schemas = {
+  projectIdParam: Joi.object({
+    projectId: commonSchemas.id.required()
+      .messages({
+        'any.required': 'El ID de proyecto es requerido'
+      }),
+  }),
+  
+  userIdParam: Joi.object({
+    userId: commonSchemas.id.required()
+      .messages({
+        'any.required': 'El ID de usuario es requerido'
+      }),
+  }),
+  
+  addMember: Joi.object({
+    userId: commonSchemas.id.required()
+      .messages({
+        'any.required': 'El ID de usuario es requerido'
+      }),
+    role: Joi.string().valid('OWNER', 'ADMIN', 'MEMBER', 'VIEWER').default('VIEWER')
+      .messages({
+        'any.only': 'Rol inválido. Debe ser OWNER, ADMIN, MEMBER o VIEWER'
+      }),
+  }),
+  
+  updateMember: Joi.object({
+    role: Joi.string().valid('OWNER', 'ADMIN', 'MEMBER', 'VIEWER').required()
+      .messages({
+        'any.required': 'El rol es requerido',
+        'any.only': 'Rol inválido. Debe ser OWNER, ADMIN, MEMBER o VIEWER'
+      }),
+  }),
+  
+  batchAddMembers: Joi.object({
+    members: Joi.array().items(
+      Joi.object({
+        userId: commonSchemas.id.required()
+          .messages({
+            'any.required': 'El ID de usuario es requerido para cada miembro'
+          }),
+        role: Joi.string().valid('OWNER', 'ADMIN', 'MEMBER', 'VIEWER').default('VIEWER')
+          .messages({
+            'any.only': 'Rol inválido. Debe ser OWNER, ADMIN, MEMBER o VIEWER'
+          }),
+      })
+    ).min(1).required()
+      .messages({
+        'array.min': 'Se requiere al menos un miembro',
+        'any.required': 'El array de miembros es requerido'
+      }),
+  }),
+};
+
+// Obtener todos los miembros de un proyecto
+router.get('/', 
+  validate({ params: schemas.projectIdParam }), 
+  projectMembershipsController.getProjectMembers
+);
+
+// Añadir un miembro a un proyecto
+router.post('/', 
+  validate({ params: schemas.projectIdParam, body: schemas.addMember }), 
+  projectMembershipsController.addProjectMember
+);
+
+// Añadir múltiples miembros a un proyecto
+router.post('/batch', 
+  validate({ params: schemas.projectIdParam, body: schemas.batchAddMembers }), 
+  projectMembershipsController.addBatchProjectMembers
+);
+
+// Obtener un miembro específico
+router.get('/:userId', 
+  validate({ params: Joi.object().keys({
+    ...schemas.projectIdParam.keys,
+    ...schemas.userIdParam.keys
+  })}), 
+  projectMembershipsController.getProjectMember
+);
+
+// Actualizar rol de un miembro
+router.put('/:userId', 
+  validate({ 
+    params: Joi.object().keys({
+      ...schemas.projectIdParam.keys,
+      ...schemas.userIdParam.keys
+    }),
+    body: schemas.updateMember 
+  }), 
+  projectMembershipsController.updateProjectMember
+);
+
+// Eliminar un miembro
+router.delete('/:userId', 
+  validate({ params: Joi.object().keys({
+    ...schemas.projectIdParam.keys,
+    ...schemas.userIdParam.keys
+  })}), 
+  projectMembershipsController.removeProjectMember
+);
+
+module.exports = router;
+
+================
 File: src/routes/projects.routes.js
 ================
 'use strict';
@@ -2283,8 +3533,9 @@ const router = express.Router();
 const { validate, Joi, commonSchemas } = require('../middleware/validation.middleware');
 const projectsController = require('../controllers/projects.controller');
 const apiKeysController = require('../controllers/api-keys.controller');
+const projectMembershipsRoutes = require('./project-memberships.routes');
 const { NotFoundError } = require('../utils/errors');
-const dbService = require('../services/database.service');
+const { db } = require('../services/database.service');
 
 // Esquemas de validación
 const schemas = {
@@ -2328,6 +3579,11 @@ const schemas = {
       .messages({
         'string.max': 'La nota no puede exceder {#limit} caracteres'
       }),
+    expiresAt: Joi.date().iso().min('now').optional()
+      .messages({
+        'date.base': 'Fecha de expiración inválida',
+        'date.min': 'La fecha de expiración debe ser futura'
+      })
   }),
 };
 
@@ -2335,7 +3591,7 @@ const schemas = {
 const checkProjectExists = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const project = await dbService.queryOne(
+    const project = await db.queryOne(
       'SELECT org_id FROM projects WHERE id = $1 AND deleted_at IS NULL',
       [id]
     );
@@ -2391,6 +3647,9 @@ router.post('/:id/api-keys',
   apiKeysController.createApiKey
 );
 
+// Usar rutas de membresías de proyecto
+router.use('/:projectId/members', projectMembershipsRoutes);
+
 module.exports = router;
 
 ================
@@ -2407,12 +3666,75 @@ const usersController = require('../controllers/users.controller');
 const schemas = {
   listUsers: Joi.object({
     search: Joi.string().trim().max(50).optional(),
-    limit: Joi.number().integer().min(1).max(100).default(10).optional()
+    limit: Joi.number().integer().min(1).max(100).default(10).optional(),
+    page: Joi.number().integer().min(1).default(1).optional()
+  }),
+  
+  idParam: Joi.object({
+    id: commonSchemas.id.required()
+      .messages({
+        'any.required': 'El ID de usuario es requerido'
+      }),
+  }),
+  
+  createUser: Joi.object({
+    name: Joi.string().trim().min(2).max(100).required()
+      .messages({
+        'string.empty': 'El nombre no puede estar vacío',
+        'string.min': 'El nombre debe tener al menos {#limit} caracteres',
+        'string.max': 'El nombre no puede exceder {#limit} caracteres',
+        'any.required': 'El nombre es requerido'
+      }),
+    email: commonSchemas.email.required()
+      .messages({
+        'string.email': 'El email debe tener un formato válido',
+        'any.required': 'El email es requerido'
+      }),
+    password: Joi.string().min(8).max(100).optional()
+      .messages({
+        'string.min': 'La contraseña debe tener al menos {#limit} caracteres',
+        'string.max': 'La contraseña no puede exceder {#limit} caracteres'
+      }),
+    admin: Joi.boolean().optional()
+  }),
+  
+  updateUser: Joi.object({
+    name: Joi.string().trim().min(2).max(100).optional()
+      .messages({
+        'string.empty': 'El nombre no puede estar vacío',
+        'string.min': 'El nombre debe tener al menos {#limit} caracteres',
+        'string.max': 'El nombre no puede exceder {#limit} caracteres'
+      }),
+    email: commonSchemas.email.optional()
+      .messages({
+        'string.email': 'El email debe tener un formato válido'
+      }),
+    image: Joi.string().uri().optional()
+      .messages({
+        'string.uri': 'La URL de la imagen debe ser válida'
+      }),
+    feature_flags: Joi.array().items(Joi.string()).optional(),
+    admin: Joi.boolean().optional()
   })
 };
 
-// Endpoint para listar usuarios
+// Endpoint para listar usuarios con paginación y búsqueda
 router.get('/', validate({ query: schemas.listUsers }), usersController.getUsers);
+
+// Endpoint para obtener un usuario específico
+router.get('/:id', validate({ params: schemas.idParam }), usersController.getUserById);
+
+// Endpoint para crear un nuevo usuario
+router.post('/', validate({ body: schemas.createUser }), usersController.createUser);
+
+// Endpoint para actualizar un usuario
+router.put('/:id', 
+  validate({ params: schemas.idParam, body: schemas.updateUser }), 
+  usersController.updateUser
+);
+
+// Endpoint para eliminar un usuario
+router.delete('/:id', validate({ params: schemas.idParam }), usersController.deleteUser);
 
 module.exports = router;
 
@@ -2423,7 +3745,7 @@ File: src/services/api-keys.service.js
 
 const { db, transaction } = require('./database.service');
 const { generateId, generateApiKey, hashSecretKey } = require('../utils/id-generator');
-const { NotFoundError } = require('../utils/errors');
+const { NotFoundError, BusinessLogicError } = require('../utils/errors');
 const { createContextLogger } = require('../utils/logger');
 
 // Logger contextual para este servicio
@@ -2440,7 +3762,7 @@ class ApiKeysService {
    */
   async getByProject(projectId) {
     return db.query(
-      `SELECT id, created_at, public_key, display_secret_key, last_used_at, note
+      `SELECT id, created_at, public_key, display_secret_key, last_used_at, note, expires_at
        FROM api_keys
        WHERE project_id = $1
        ORDER BY created_at DESC`,
@@ -2456,7 +3778,7 @@ class ApiKeysService {
   async getById(id) {
     const apiKey = await db.queryOne(
       `SELECT ak.id, ak.created_at, ak.public_key, ak.display_secret_key, 
-              ak.last_used_at, ak.note, p.id as project_id, p.name as project_name
+              ak.last_used_at, ak.note, ak.expires_at, p.id as project_id, p.name as project_name
        FROM api_keys ak
        JOIN projects p ON ak.project_id = p.id
        WHERE ak.id = $1 AND p.deleted_at IS NULL`,
@@ -2475,9 +3797,25 @@ class ApiKeysService {
    * @param {string} projectId - ID del proyecto
    * @param {Object} data - Datos adicionales
    * @param {string} data.note - Nota descriptiva (opcional)
+   * @param {Date|string|null} data.expiresAt - Fecha de expiración (opcional)
    * @returns {Promise<Object>} Nueva API key creada
    */
-  async create(projectId, { note = null } = {}) {
+  async create(projectId, { note = null, expiresAt = null } = {}) {
+    // Validar fecha de expiración si se proporciona
+    let parsedExpiresAt = null;
+    if (expiresAt) {
+      parsedExpiresAt = new Date(expiresAt);
+      
+      if (isNaN(parsedExpiresAt.getTime())) {
+        throw new BusinessLogicError('Formato de fecha de expiración inválido');
+      }
+      
+      // Verificar que la fecha sea futura
+      if (parsedExpiresAt <= new Date()) {
+        throw new BusinessLogicError('La fecha de expiración debe ser futura');
+      }
+    }
+    
     return transaction(async (client) => {
       // Verificar si el proyecto existe
       const projectCheck = await client.query(
@@ -2504,20 +3842,22 @@ class ApiKeysService {
           public_key, 
           hashed_secret_key, 
           display_secret_key,
-          note
-        ) VALUES ($1, $2, CURRENT_TIMESTAMP, $3, $4, $5, $6)
-        RETURNING id, created_at, public_key, display_secret_key, note`,
+          note,
+          expires_at
+        ) VALUES ($1, $2, CURRENT_TIMESTAMP, $3, $4, $5, $6, $7)
+        RETURNING id, created_at, public_key, display_secret_key, note, expires_at`,
         [
           apiKeyId, 
           projectId, 
           publicKey, 
           hashedSecretKey, 
           secretKey.substring(0, 8) + '...', 
-          note
+          note,
+          parsedExpiresAt
         ]
       );
       
-      logger.info(`Nueva API key creada con ID: ${apiKeyId} para proyecto ${projectId}`);
+      logger.info(`Nueva API key creada con ID: ${apiKeyId} para proyecto ${projectId}${parsedExpiresAt ? ` (expira: ${parsedExpiresAt.toISOString()})` : ''}`);
       
       // Devolver con secretKey completa (solo se muestra una vez)
       return {
@@ -2530,13 +3870,30 @@ class ApiKeysService {
   /**
    * Regenera una API key existente
    * @param {string} id - ID de la API key
+   * @param {Object} options - Opciones de regeneración
+   * @param {Date|string|null} options.expiresAt - Nueva fecha de expiración (opcional)
    * @returns {Promise<Object>} Nueva API key regenerada
    */
-  async regenerate(id) {
+  async regenerate(id, { expiresAt = null } = {}) {
+    // Validar fecha de expiración si se proporciona
+    let parsedExpiresAt = null;
+    if (expiresAt) {
+      parsedExpiresAt = new Date(expiresAt);
+      
+      if (isNaN(parsedExpiresAt.getTime())) {
+        throw new BusinessLogicError('Formato de fecha de expiración inválido');
+      }
+      
+      // Verificar que la fecha sea futura
+      if (parsedExpiresAt <= new Date()) {
+        throw new BusinessLogicError('La fecha de expiración debe ser futura');
+      }
+    }
+    
     return transaction(async (client) => {
       // Verificar si la API key existe
       const apiKeyCheck = await client.query(
-        'SELECT id, project_id, note FROM api_keys WHERE id = $1',
+        'SELECT id, project_id, note, expires_at FROM api_keys WHERE id = $1',
         [id]
       );
       
@@ -2545,6 +3902,11 @@ class ApiKeysService {
       }
       
       const existingKey = apiKeyCheck.rows[0];
+      
+      // Si no se proporciona nueva fecha de expiración, mantener la actual
+      if (expiresAt === null && existingKey.expires_at) {
+        parsedExpiresAt = existingKey.expires_at;
+      }
       
       // Generar nuevas claves
       const publicKey = generateApiKey('pk');
@@ -2557,18 +3919,20 @@ class ApiKeysService {
          SET public_key = $1, 
              hashed_secret_key = $2, 
              display_secret_key = $3,
-             updated_at = CURRENT_TIMESTAMP
-         WHERE id = $4
-         RETURNING id, created_at, public_key, display_secret_key, note, last_used_at`,
+             updated_at = CURRENT_TIMESTAMP,
+             expires_at = $4
+         WHERE id = $5
+         RETURNING id, created_at, public_key, display_secret_key, note, last_used_at, expires_at`,
         [
           publicKey,
           hashedSecretKey,
           secretKey.substring(0, 8) + '...',
+          parsedExpiresAt,
           id
         ]
       );
       
-      logger.info(`API key regenerada con ID: ${id}`);
+      logger.info(`API key regenerada con ID: ${id}${parsedExpiresAt ? ` (expira: ${parsedExpiresAt.toISOString()})` : ''}`);
       
       // Devolver con secretKey completa (solo se muestra una vez)
       return {
@@ -2576,6 +3940,67 @@ class ApiKeysService {
         secretKey
       };
     });
+  }
+
+  /**
+   * Actualiza la fecha de expiración de una API key
+   * @param {string} id - ID de la API key
+   * @param {Date|string|null} expiresAt - Nueva fecha de expiración (null para eliminar expiración)
+   * @returns {Promise<Object>} API key actualizada
+   */
+  async updateExpiration(id, expiresAt) {
+    // Validar fecha de expiración si no es null
+    let parsedExpiresAt = null;
+    if (expiresAt) {
+      parsedExpiresAt = new Date(expiresAt);
+      
+      if (isNaN(parsedExpiresAt.getTime())) {
+        throw new BusinessLogicError('Formato de fecha de expiración inválido');
+      }
+      
+      // Verificar que la fecha sea futura
+      if (parsedExpiresAt <= new Date()) {
+        throw new BusinessLogicError('La fecha de expiración debe ser futura');
+      }
+    }
+    
+    const result = await db.query(
+      `UPDATE api_keys
+       SET expires_at = $1, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $2
+       RETURNING id, created_at, public_key, display_secret_key, note, last_used_at, expires_at`,
+      [parsedExpiresAt, id]
+    );
+    
+    if (result.length === 0) {
+      throw new NotFoundError('API key');
+    }
+    
+    logger.info(`Expiración de API key ${id} actualizada: ${parsedExpiresAt ? parsedExpiresAt.toISOString() : 'sin expiración'}`);
+    return result[0];
+  }
+
+  /**
+   * Actualiza la nota de una API key
+   * @param {string} id - ID de la API key
+   * @param {string} note - Nueva nota descriptiva
+   * @returns {Promise<Object>} API key actualizada
+   */
+  async updateNote(id, note) {
+    const result = await db.query(
+      `UPDATE api_keys
+       SET note = $1, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $2
+       RETURNING id, created_at, public_key, display_secret_key, note, last_used_at, expires_at`,
+      [note, id]
+    );
+    
+    if (result.length === 0) {
+      throw new NotFoundError('API key');
+    }
+    
+    logger.info(`Nota de API key ${id} actualizada`);
+    return result[0];
   }
 
   /**
@@ -2598,6 +4023,38 @@ class ApiKeysService {
   }
 
   /**
+   * Obtiene todas las API keys expiradas
+   * @returns {Promise<Array>} Lista de API keys expiradas
+   */
+  async getExpired() {
+    return db.query(
+      `SELECT id, created_at, public_key, display_secret_key, last_used_at, note, expires_at, project_id
+       FROM api_keys
+       WHERE expires_at IS NOT NULL AND expires_at < CURRENT_TIMESTAMP
+       ORDER BY expires_at ASC`
+    );
+  }
+
+  /**
+   * Elimina todas las API keys expiradas
+   * @returns {Promise<number>} Número de API keys eliminadas
+   */
+  async cleanupExpired() {
+    const result = await db.query(
+      `DELETE FROM api_keys 
+       WHERE expires_at IS NOT NULL AND expires_at < CURRENT_TIMESTAMP
+       RETURNING id`
+    );
+    
+    const count = result.length;
+    if (count > 0) {
+      logger.info(`Eliminadas ${count} API keys expiradas`);
+    }
+    
+    return count;
+  }
+
+  /**
    * Verifica una API key para autenticación
    * @param {string} publicKey - Clave pública
    * @param {string} secretKey - Clave secreta
@@ -2610,11 +4067,19 @@ class ApiKeysService {
     
     // Buscar la API key por su clave pública
     const apiKey = await db.queryOne(
-      'SELECT project_id, hashed_secret_key FROM api_keys WHERE public_key = $1',
+      `SELECT project_id, hashed_secret_key, expires_at 
+       FROM api_keys 
+       WHERE public_key = $1`,
       [publicKey]
     );
     
     if (!apiKey) {
+      return null;
+    }
+    
+    // Verificar si la clave ha expirado
+    if (apiKey.expires_at && new Date(apiKey.expires_at) < new Date()) {
+      logger.warn(`Intento de uso de API key expirada: ${publicKey}`);
       return null;
     }
     
@@ -2664,27 +4129,51 @@ const { logger } = require('../utils/logger');
  */
 class DatabaseService {
   constructor() {
-    this.pool = new Pool({
+    // Initialize the pool configuration
+    const poolConfig = {
       host: config.db.host,
       port: config.db.port,
       database: config.db.database,
       user: config.db.user,
       password: config.db.password,
-      ssl: config.db.ssl,
       max: config.db.pool.max,
       idleTimeoutMillis: config.db.pool.idleTimeoutMillis,
+      connectionTimeoutMillis: config.db.pool.acquireTimeoutMillis,
+    };
+
+    // Configure SSL if enabled
+    if (config.db.ssl) {
+      poolConfig.ssl = typeof config.db.ssl === 'object' 
+        ? config.db.ssl 
+        : { rejectUnauthorized: false };
+    }
+
+    // Log connection details (excluding sensitive data)
+    logger.info('Initializing database connection', {
+      host: config.db.host,
+      port: config.db.port,
+      database: config.db.database,
+      user: config.db.user,
+      sslEnabled: !!config.db.ssl,
     });
 
-    // Eventos para monitoreo del pool
+    // Create the connection pool
+    this.pool = new Pool(poolConfig);
+
+    // Events for pool monitoring
     this.pool.on('connect', () => {
-      logger.debug('Conexión adquirida desde el pool');
+      logger.debug('Connection acquired from pool');
     });
 
     this.pool.on('error', (err) => {
-      logger.error('Error inesperado en cliente del pool', err);
+      logger.error('Unexpected error in pool client', {
+        error: err.message,
+        stack: err.stack,
+        code: err.code
+      });
     });
 
-    logger.info('Servicio de base de datos inicializado');
+    logger.info('Database service initialized');
   }
 
   /**
@@ -2713,6 +4202,7 @@ class DatabaseService {
         params,
         error: error.message,
         stack: error.stack,
+        code: error.code
       });
       
       throw new DatabaseError('Error al ejecutar consulta', { cause: error });
@@ -2748,10 +4238,37 @@ class DatabaseService {
       logger.error('Error en transacción:', {
         error: error.message,
         stack: error.stack,
+        code: error.code
       });
       throw new DatabaseError('Error al ejecutar transacción', { cause: error });
     } finally {
       client.release();
+    }
+  }
+
+  /**
+   * Verifica la conexión a la base de datos
+   * @returns {Promise<Object>} - Resultado de la verificación
+   */
+  async checkConnection() {
+    try {
+      const result = await this.pool.query('SELECT NOW() as time');
+      return {
+        status: 'connected',
+        time: result.rows[0].time
+      };
+    } catch (error) {
+      logger.error('Database connection check failed:', {
+        error: error.message,
+        code: error.code,
+        stack: error.stack
+      });
+      
+      return {
+        status: 'error',
+        error: error.message,
+        code: error.code
+      };
     }
   }
 
@@ -2767,7 +4284,10 @@ class DatabaseService {
 // Singleton para reutilizar en toda la aplicación
 const dbService = new DatabaseService();
 
-module.exports = dbService;
+module.exports = {
+  db: dbService,
+  transaction: async (callback) => dbService.transaction(callback)
+};
 
 ================
 File: src/services/organizations.service.js
@@ -3115,6 +4635,372 @@ class OrganizationsService {
 module.exports = new OrganizationsService();
 
 ================
+File: src/services/project-memberships.service.js
+================
+'use strict';
+
+const { db, transaction } = require('./database.service');
+const { generateId } = require('../utils/id-generator');
+const { 
+  NotFoundError, 
+  ConflictError, 
+  BusinessLogicError 
+} = require('../utils/errors');
+const { createContextLogger } = require('../utils/logger');
+
+// Logger contextual para este servicio
+const logger = createContextLogger('project-memberships-service');
+
+/**
+ * Servicio para manejar operaciones relacionadas con membresías de proyectos
+ */
+class ProjectMembershipsService {
+  /**
+   * Obtiene todos los miembros de un proyecto
+   * @param {string} projectId - ID del proyecto
+   * @returns {Promise<Array>} Lista de miembros
+   */
+  async getByProject(projectId) {
+    // Verificar si el proyecto existe
+    const projectExists = await db.queryOne(
+      'SELECT id FROM projects WHERE id = $1 AND deleted_at IS NULL',
+      [projectId]
+    );
+    
+    if (!projectExists) {
+      throw new NotFoundError('Proyecto');
+    }
+    
+    return db.query(
+      `SELECT pm.project_id, pm.user_id, pm.role, pm.created_at, pm.updated_at,
+              u.name, u.email, u.image
+       FROM project_memberships pm
+       JOIN users u ON pm.user_id = u.id
+       WHERE pm.project_id = $1
+       ORDER BY pm.created_at DESC`,
+      [projectId]
+    );
+  }
+
+  /**
+   * Obtiene detalles de un miembro específico
+   * @param {string} projectId - ID del proyecto
+   * @param {string} userId - ID del usuario
+   * @returns {Promise<Object|null>} Detalles de la membresía
+   */
+  async getMember(projectId, userId) {
+    return db.queryOne(
+      `SELECT pm.project_id, pm.user_id, pm.role, pm.created_at, pm.updated_at,
+              u.name, u.email, u.image
+       FROM project_memberships pm
+       JOIN users u ON pm.user_id = u.id
+       WHERE pm.project_id = $1 AND pm.user_id = $2`,
+      [projectId, userId]
+    );
+  }
+
+  /**
+   * Añade un usuario a un proyecto
+   * @param {string} projectId - ID del proyecto
+   * @param {string} userId - ID del usuario
+   * @param {string} role - Rol del usuario (OWNER, ADMIN, MEMBER, VIEWER)
+   * @returns {Promise<Object>} Membresía creada
+   */
+  async addMember(projectId, userId, role = 'VIEWER') {
+    if (!userId) {
+      throw new BusinessLogicError('El ID de usuario es requerido');
+    }
+    
+    // Validar rol
+    const validRoles = ['OWNER', 'ADMIN', 'MEMBER', 'VIEWER'];
+    if (!validRoles.includes(role)) {
+      throw new BusinessLogicError('Rol inválido. Debe ser OWNER, ADMIN, MEMBER o VIEWER');
+    }
+    
+    return transaction(async (client) => {
+      // Verificar si el proyecto existe
+      const projectCheck = await client.query(
+        'SELECT id, org_id FROM projects WHERE id = $1 AND deleted_at IS NULL',
+        [projectId]
+      );
+      
+      if (projectCheck.rows.length === 0) {
+        throw new NotFoundError('Proyecto');
+      }
+      
+      const orgId = projectCheck.rows[0].org_id;
+      
+      // Verificar si el usuario existe
+      const userCheck = await client.query(
+        'SELECT id FROM users WHERE id = $1',
+        [userId]
+      );
+      
+      if (userCheck.rows.length === 0) {
+        throw new NotFoundError('Usuario');
+      }
+      
+      // Verificar si existe membresía de organización
+      const orgMembershipCheck = await client.query(
+        'SELECT id FROM organization_memberships WHERE org_id = $1 AND user_id = $2',
+        [orgId, userId]
+      );
+      
+      let orgMembershipId;
+      
+      if (orgMembershipCheck.rows.length === 0) {
+        // Crear membresía de organización primero con rol VIEWER por defecto
+        orgMembershipId = generateId('om');
+        await client.query(
+          `INSERT INTO organization_memberships (id, org_id, user_id, role, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+          [orgMembershipId, orgId, userId, 'VIEWER']
+        );
+        
+        logger.info(`Usuario ${userId} añadido a organización ${orgId} automáticamente`);
+      } else {
+        orgMembershipId = orgMembershipCheck.rows[0].id;
+      }
+      
+      // Verificar si ya es miembro del proyecto
+      const memberCheck = await client.query(
+        'SELECT project_id, user_id FROM project_memberships WHERE project_id = $1 AND user_id = $2',
+        [projectId, userId]
+      );
+      
+      if (memberCheck.rows.length > 0) {
+        throw new ConflictError('El usuario ya es miembro de este proyecto');
+      }
+      
+      // Crear membresía de proyecto
+      const memberResult = await client.query(
+        `INSERT INTO project_memberships (project_id, user_id, org_membership_id, role, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+         RETURNING project_id, user_id, role, created_at, updated_at`,
+        [projectId, userId, orgMembershipId, role]
+      );
+      
+      // Obtener datos del usuario para devolver información completa
+      const userResult = await client.query(
+        'SELECT name, email, image FROM users WHERE id = $1',
+        [userId]
+      );
+      
+      logger.info(`Usuario ${userId} añadido a proyecto ${projectId} con rol ${role}`);
+      
+      return {
+        ...memberResult.rows[0],
+        ...userResult.rows[0]
+      };
+    });
+  }
+
+  /**
+   * Actualiza el rol de un miembro en el proyecto
+   * @param {string} projectId - ID del proyecto
+   * @param {string} userId - ID del usuario
+   * @param {string} role - Nuevo rol
+   * @returns {Promise<Object>} Membresía actualizada
+   */
+  async updateMember(projectId, userId, role) {
+    if (!role) {
+      throw new BusinessLogicError('El rol es requerido');
+    }
+    
+    // Validar rol
+    const validRoles = ['OWNER', 'ADMIN', 'MEMBER', 'VIEWER'];
+    if (!validRoles.includes(role)) {
+      throw new BusinessLogicError('Rol inválido. Debe ser OWNER, ADMIN, MEMBER o VIEWER');
+    }
+    
+    // Si el nuevo rol no es OWNER, verificar que no sea el último propietario
+    let result;
+    if (role !== 'OWNER') {
+      result = await transaction(async (client) => {
+        // Comprobar si el usuario actual es OWNER
+        const currentRole = await client.query(
+          'SELECT role FROM project_memberships WHERE project_id = $1 AND user_id = $2',
+          [projectId, userId]
+        );
+        
+        if (currentRole.rows.length === 0) {
+          throw new NotFoundError('Membresía de proyecto');
+        }
+        
+        if (currentRole.rows[0].role === 'OWNER') {
+          // Contar propietarios
+          const ownersCount = await client.query(
+            'SELECT COUNT(*) FROM project_memberships WHERE project_id = $1 AND role = $2',
+            [projectId, 'OWNER']
+          );
+          
+          if (parseInt(ownersCount.rows[0].count) <= 1) {
+            throw new BusinessLogicError('No se puede cambiar el rol del último propietario');
+          }
+        }
+        
+        // Actualizar rol
+        const updateResult = await client.query(
+          `UPDATE project_memberships 
+           SET role = $1, updated_at = CURRENT_TIMESTAMP 
+           WHERE project_id = $2 AND user_id = $3 
+           RETURNING project_id, user_id, role, created_at, updated_at`,
+          [role, projectId, userId]
+        );
+        
+        if (updateResult.rows.length === 0) {
+          throw new NotFoundError('Membresía de proyecto');
+        }
+        
+        // Obtener datos del usuario para devolver información completa
+        const userResult = await client.query(
+          'SELECT name, email, image FROM users WHERE id = $1',
+          [userId]
+        );
+        
+        logger.info(`Rol de usuario ${userId} en proyecto ${projectId} actualizado a ${role}`);
+        
+        return {
+          ...updateResult.rows[0],
+          ...userResult.rows[0]
+        };
+      });
+    } else {
+      // Si el nuevo rol es OWNER, simplemente actualizar
+      result = await transaction(async (client) => {
+        const updateResult = await client.query(
+          `UPDATE project_memberships 
+           SET role = $1, updated_at = CURRENT_TIMESTAMP 
+           WHERE project_id = $2 AND user_id = $3 
+           RETURNING project_id, user_id, role, created_at, updated_at`,
+          [role, projectId, userId]
+        );
+        
+        if (updateResult.rows.length === 0) {
+          throw new NotFoundError('Membresía de proyecto');
+        }
+        
+        // Obtener datos del usuario para devolver información completa
+        const userResult = await client.query(
+          'SELECT name, email, image FROM users WHERE id = $1',
+          [userId]
+        );
+        
+        logger.info(`Usuario ${userId} promovido a propietario en proyecto ${projectId}`);
+        
+        return {
+          ...updateResult.rows[0],
+          ...userResult.rows[0]
+        };
+      });
+    }
+    
+    return result;
+  }
+
+  /**
+   * Elimina un miembro del proyecto
+   * @param {string} projectId - ID del proyecto
+   * @param {string} userId - ID del usuario
+   * @returns {Promise<boolean>} true si se eliminó correctamente
+   */
+  async removeMember(projectId, userId) {
+    return transaction(async (client) => {
+      // Verificar si es el último propietario
+      const currentRole = await client.query(
+        'SELECT role FROM project_memberships WHERE project_id = $1 AND user_id = $2',
+        [projectId, userId]
+      );
+      
+      if (currentRole.rows.length === 0) {
+        throw new NotFoundError('Membresía de proyecto');
+      }
+      
+      if (currentRole.rows[0].role === 'OWNER') {
+        // Contar propietarios
+        const ownersCount = await client.query(
+          'SELECT COUNT(*) FROM project_memberships WHERE project_id = $1 AND role = $2',
+          [projectId, 'OWNER']
+        );
+        
+        if (parseInt(ownersCount.rows[0].count) <= 1) {
+          throw new BusinessLogicError('No se puede eliminar al último propietario');
+        }
+      }
+      
+      // Eliminar la membresía
+      const deleteResult = await client.query(
+        'DELETE FROM project_memberships WHERE project_id = $1 AND user_id = $2 RETURNING project_id',
+        [projectId, userId]
+      );
+      
+      if (deleteResult.rows.length === 0) {
+        throw new NotFoundError('Membresía de proyecto');
+      }
+      
+      logger.info(`Usuario ${userId} eliminado del proyecto ${projectId}`);
+      return true;
+    });
+  }
+
+  /**
+   * Añade múltiples miembros a un proyecto
+   * @param {string} projectId - ID del proyecto
+   * @param {Array} members - Array de {userId, role}
+   * @returns {Promise<Object>} Resultado con éxitos y errores
+   */
+  async addBatchMembers(projectId, members) {
+    if (!Array.isArray(members) || members.length === 0) {
+      throw new BusinessLogicError('Se requiere un array de miembros válido');
+    }
+    
+    const result = {
+      success: [],
+      errors: []
+    };
+    
+    // Verificar que el proyecto exista
+    const projectExists = await db.queryOne(
+      'SELECT id FROM projects WHERE id = $1 AND deleted_at IS NULL',
+      [projectId]
+    );
+    
+    if (!projectExists) {
+      throw new NotFoundError('Proyecto');
+    }
+    
+    // Procesar cada miembro secuencialmente para mejor manejo de errores
+    for (const member of members) {
+      try {
+        const { userId, role = 'VIEWER' } = member;
+        
+        if (!userId) {
+          result.errors.push({
+            userId: member.userId || 'unknown',
+            error: 'ID de usuario requerido'
+          });
+          continue;
+        }
+        
+        const membership = await this.addMember(projectId, userId, role);
+        result.success.push(membership);
+      } catch (error) {
+        logger.warn(`Error al añadir miembro ${member.userId} al proyecto ${projectId}:`, error);
+        
+        result.errors.push({
+          userId: member.userId || 'unknown',
+          error: error.message
+        });
+      }
+    }
+    
+    return result;
+  }
+}
+
+module.exports = new ProjectMembershipsService();
+
+================
 File: src/services/projects.service.js
 ================
 'use strict';
@@ -3292,6 +5178,343 @@ class ProjectsService {
 }
 
 module.exports = new ProjectsService();
+
+================
+File: src/services/users.service.js
+================
+'use strict';
+
+const { db, transaction } = require('./database.service');
+const { generateId } = require('../utils/id-generator');
+const { NotFoundError, ConflictError, BusinessLogicError } = require('../utils/errors');
+const { createContextLogger } = require('../utils/logger');
+const crypto = require('crypto');
+
+// Logger contextual para este servicio
+const logger = createContextLogger('users-service');
+
+/**
+ * Servicio para manejar operaciones relacionadas con usuarios
+ */
+class UsersService {
+  /**
+   * Obtiene todos los usuarios con paginación y búsqueda
+   * @param {Object} options - Opciones de filtrado
+   * @param {string} options.search - Término de búsqueda para nombre o email
+   * @param {number} options.limit - Límite de resultados por página
+   * @param {number} options.page - Número de página
+   * @returns {Promise<Array>} Lista de usuarios
+   */
+  async getAll({ search, limit = 10, page = 1 }) {
+    const offset = (page - 1) * limit;
+    let queryText = `
+      SELECT id, name, email, image, created_at, admin, 
+             feature_flags, email_verified
+      FROM users
+    `;
+    const params = [];
+    
+    if (search) {
+      queryText += ` WHERE name ILIKE $1 OR email ILIKE $1`;
+      params.push(`%${search}%`);
+    }
+    
+    queryText += ` ORDER BY name LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+    params.push(parseInt(limit, 10), offset);
+    
+    const users = await db.query(queryText, params);
+    
+    // Obtener conteo total para paginación
+    let countQuery = 'SELECT COUNT(*) FROM users';
+    if (search) {
+      countQuery += ` WHERE name ILIKE $1 OR email ILIKE $1`;
+    }
+    
+    const totalCount = await db.queryOne(countQuery, search ? [`%${search}%`] : []);
+    
+    return {
+      users,
+      pagination: {
+        total: parseInt(totalCount.count, 10),
+        page: parseInt(page, 10),
+        limit: parseInt(limit, 10),
+        pages: Math.ceil(parseInt(totalCount.count, 10) / limit)
+      }
+    };
+  }
+
+  /**
+   * Obtiene un usuario por su ID
+   * @param {string} id - ID del usuario
+   * @returns {Promise<Object|null>} Usuario o null si no existe
+   */
+  async getById(id) {
+    const user = await db.queryOne(
+      `SELECT id, name, email, image, created_at, updated_at, 
+              admin, feature_flags, email_verified
+       FROM users 
+       WHERE id = $1`,
+      [id]
+    );
+    
+    return user;
+  }
+
+  /**
+   * Crea un nuevo usuario
+   * @param {Object} data - Datos del usuario
+   * @param {string} data.name - Nombre
+   * @param {string} data.email - Email
+   * @param {string} data.password - Contraseña (opcional)
+   * @returns {Promise<Object>} Usuario creado
+   */
+  async create({ name, email, password = null }) {
+    if (!email) {
+      throw new BusinessLogicError('El email es requerido');
+    }
+    
+    return transaction(async (client) => {
+      // Verificar si el email ya está en uso
+      const existingUser = await client.query(
+        'SELECT id FROM users WHERE email = $1',
+        [email]
+      );
+      
+      if (existingUser.rows.length > 0) {
+        throw new ConflictError('El email ya está en uso');
+      }
+      
+      // Hashear contraseña si se proporciona
+      let hashedPassword = null;
+      if (password) {
+        // En producción, usar bcrypt o similar
+        hashedPassword = crypto.createHash('sha256').update(password).digest('hex');
+      }
+      
+      // Generar ID único
+      const id = generateId('usr');
+      
+      // Insertar usuario
+      const result = await client.query(
+        `INSERT INTO users (
+          id, name, email, password, created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        RETURNING id, name, email, created_at, updated_at`,
+        [id, name, email, hashedPassword]
+      );
+      
+      logger.info(`Usuario creado con ID: ${id}`);
+      return result.rows[0];
+    });
+  }
+
+  /**
+   * Actualiza un usuario existente
+   * @param {string} id - ID del usuario
+   * @param {Object} data - Datos a actualizar
+   * @returns {Promise<Object|null>} Usuario actualizado o null
+   */
+  async update(id, { name, email, image, feature_flags, admin = false }) {
+    const updateFields = [];
+    const params = [id];
+    let paramIndex = 2;
+    
+    // Construir query dinámicamente según los campos proporcionados
+    if (name !== undefined) {
+      updateFields.push(`name = $${paramIndex++}`);
+      params.push(name);
+    }
+    
+    if (email !== undefined) {
+      updateFields.push(`email = $${paramIndex++}`);
+      params.push(email);
+    }
+    
+    if (image !== undefined) {
+      updateFields.push(`image = $${paramIndex++}`);
+      params.push(image);
+    }
+    
+    if (feature_flags !== undefined) {
+      updateFields.push(`feature_flags = $${paramIndex++}`);
+      params.push(Array.isArray(feature_flags) ? feature_flags : []);
+    }
+    
+    if (admin !== undefined) {
+      updateFields.push(`admin = $${paramIndex++}`);
+      params.push(Boolean(admin));
+    }
+    
+    // Siempre actualizar el timestamp
+    updateFields.push('updated_at = CURRENT_TIMESTAMP');
+    
+    if (updateFields.length === 1) {
+      // Solo se actualizó el timestamp
+      throw new BusinessLogicError('No hay campos para actualizar');
+    }
+    
+    const query = `
+      UPDATE users 
+      SET ${updateFields.join(', ')} 
+      WHERE id = $1 
+      RETURNING id, name, email, image, created_at, updated_at, admin, feature_flags
+    `;
+    
+    const result = await db.query(query, params);
+    
+    if (result.length === 0) {
+      return null;
+    }
+    
+    logger.info(`Usuario actualizado: ${id}`);
+    return result[0];
+  }
+
+  /**
+   * Elimina un usuario verificando dependencias
+   * @param {string} id - ID del usuario
+   * @returns {Promise<boolean>} true si se eliminó correctamente
+   */
+  async delete(id) {
+    return transaction(async (client) => {
+      // Verificar si tiene membresías de organización
+      const memberships = await client.query(
+        'SELECT COUNT(*) FROM organization_memberships WHERE user_id = $1',
+        [id]
+      );
+      
+      const membershipCount = parseInt(memberships.rows[0].count, 10);
+      
+      if (membershipCount > 0) {
+        throw new BusinessLogicError(
+          `No se puede eliminar el usuario porque pertenece a ${membershipCount} organización(es). ` +
+          'Elimine primero las membresías del usuario.'
+        );
+      }
+      
+      // Eliminar cuentas vinculadas y sesiones
+      await client.query('DELETE FROM "Account" WHERE user_id = $1', [id]);
+      await client.query('DELETE FROM "Session" WHERE user_id = $1', [id]);
+      
+      // Finalmente eliminar el usuario
+      const result = await client.query(
+        'DELETE FROM users WHERE id = $1 RETURNING id',
+        [id]
+      );
+      
+      if (result.rows.length === 0) {
+        throw new NotFoundError('Usuario');
+      }
+      
+      logger.info(`Usuario eliminado: ${id}`);
+      return true;
+    });
+  }
+}
+
+module.exports = new UsersService();
+
+================
+File: src/utils/config-checker.js
+================
+'use strict';
+
+const { logger } = require('./logger');
+
+/**
+ * Utility to validate configuration settings
+ */
+class ConfigChecker {
+  /**
+   * Validates database configuration parameters and logs useful information
+   * @param {Object} dbConfig - Database configuration object
+   * @returns {Object} - Validation result with warnings and errors
+   */
+  static validateDatabaseConfig(dbConfig) {
+    const result = {
+      valid: true,
+      warnings: [],
+      errors: []
+    };
+
+    // Check for essential parameters
+    if (!dbConfig.host) {
+      result.errors.push('DB_HOST not defined');
+      result.valid = false;
+    }
+
+    if (!dbConfig.port) {
+      result.warnings.push('DB_PORT not defined, using default (5432)');
+    } else if (isNaN(dbConfig.port)) {
+      result.errors.push('DB_PORT must be a number');
+      result.valid = false;
+    }
+
+    if (!dbConfig.database) {
+      result.errors.push('DB_NAME not defined');
+      result.valid = false;
+    }
+
+    if (!dbConfig.user) {
+      result.errors.push('DB_USER not defined');
+      result.valid = false;
+    }
+
+    if (!dbConfig.password) {
+      result.warnings.push('DB_PASS not defined, make sure this is intentional');
+    }
+
+    // Additional validations
+    if (dbConfig.host === 'localhost' && process.env.NODE_ENV === 'production') {
+      result.warnings.push('Using localhost in production environment, ensure this is intentional');
+    }
+
+    // Log validation results
+    if (result.warnings.length > 0) {
+      logger.warn('Database configuration warnings:', { warnings: result.warnings });
+    }
+
+    if (result.errors.length > 0) {
+      logger.error('Database configuration errors:', { errors: result.errors });
+    } else {
+      logger.info('Database configuration validated successfully');
+    }
+
+    return result;
+  }
+
+  /**
+   * Validates the application configuration and logs useful diagnostic information
+   * @param {Object} config - The application configuration object
+   * @returns {boolean} - Whether the configuration is valid
+   */
+  static validateAppConfig(config) {
+    logger.info('Application configuration:', {
+      environment: config.nodeEnv,
+      port: config.port,
+      host: config.host,
+      apiKeyAuthEnabled: config.enableApiKeyAuth,
+      corsOrigin: config.corsOrigin,
+      logLevel: config.logLevel
+    });
+
+    // Validate database configuration
+    const dbValidation = this.validateDatabaseConfig(config.db);
+    
+    return dbValidation.valid;
+  }
+
+  /**
+   * Format database connection string for logging (hiding sensitive data)
+   * @param {Object} dbConfig - Database configuration object
+   * @returns {string} - Formatted connection string for logging
+   */
+  static formatDbConnectionString(dbConfig) {
+    return `postgres://${dbConfig.user}:***@${dbConfig.host}:${dbConfig.port}/${dbConfig.database}${dbConfig.ssl ? ' (SSL enabled)' : ''}`;
+  }
+}
+
+module.exports = ConfigChecker;
 
 ================
 File: src/utils/errors.js
@@ -3612,9 +5835,16 @@ const path = require('path');
 const { errorHandler } = require('./middleware/error.middleware');
 const { requestLogger } = require('./middleware/request.middleware');
 const routes = require('./routes');
+const config = require('./config');
+const { logger } = require('./utils/logger');
+const ConfigChecker = require('./utils/config-checker');
+const { db } = require('./services/database.service');
 
 // Crear instancia de Express
 const app = express();
+
+// Validate configuration
+ConfigChecker.validateAppConfig(config);
 
 // Middlewares de seguridad y optimización
 app.use(helmet()); // Seguridad mediante cabeceras HTTP
@@ -3649,6 +5879,15 @@ if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_DOCS === 'true')
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 }
 
+// Test endpoint for basic connectivity check (without DB)
+app.get('/api/ping', (req, res) => {
+  res.json({ 
+    status: 'ok',
+    timestamp: new Date(),
+    message: 'API server is running'
+  });
+});
+
 // Rutas API
 app.use('/api', routes);
 
@@ -3664,6 +5903,35 @@ app.use((req, res) => {
 
 // Manejador de errores global
 app.use(errorHandler);
+
+// Initialize the application
+const initApp = async () => {
+  try {
+    // Check database connection at startup
+    const dbStatus = await db.checkConnection();
+    if (dbStatus.status === 'connected') {
+      logger.info('Database connection successful on startup');
+    } else {
+      logger.warn('Database connection check failed on startup', {
+        error: dbStatus.error,
+        code: dbStatus.code
+      });
+      
+      // We don't fail startup if DB connection fails - the app can still serve API documentation
+      // and other endpoints that don't require DB access, like /api/ping
+    }
+  } catch (error) {
+    logger.error('Error during application initialization', {
+      error: error.message,
+      stack: error.stack
+    });
+  }
+};
+
+// Execute initialization
+initApp().catch(err => {
+  logger.error('Unexpected error during initialization', err);
+});
 
 module.exports = app;
 
@@ -3715,39 +5983,6 @@ logs
 Thumbs.db
 
 ================
-File: .env.example
-================
-# Configuración de entorno
-NODE_ENV=development
-PORT=3100
-
-# Seguridad
-API_KEY=admin-secret-key
-ENABLE_API_KEY_AUTH=true
-CORS_ORIGIN=*
-
-# Base de datos PostgreSQL
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=postgres
-DB_USER=postgres
-DB_PASS=postgres
-DB_SSL=false
-DB_POOL_MIN=2
-DB_POOL_MAX=10
-
-# Logging
-LOG_LEVEL=info
-ENABLE_REQUEST_LOGGING=true
-
-# Rate Limiting
-RATE_LIMIT_WINDOW_MS=900000
-RATE_LIMIT_MAX=100
-
-# Documentación API
-ENABLE_DOCS=true
-
-================
 File: .eslintrc.js
 ================
 module.exports = {
@@ -3794,6 +6029,146 @@ module.exports = {
       },
     ],
   };
+
+================
+File: .gitignore
+================
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Diagnostic reports (https://nodejs.org/api/report.html)
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Directory for instrumented libs generated by jscoverage/JSCover
+lib-cov
+
+# Coverage directory used by tools like istanbul
+coverage
+*.lcov
+
+# nyc test coverage
+.nyc_output
+
+# Grunt intermediate storage (https://gruntjs.com/creating-plugins#storing-task-files)
+.grunt
+
+# Bower dependency directory (https://bower.io/)
+bower_components
+
+# node-waf configuration
+.lock-wscript
+
+# Compiled binary addons (https://nodejs.org/api/addons.html)
+build/Release
+
+# Dependency directories
+node_modules/
+jspm_packages/
+
+# Snowpack dependency directory (https://snowpack.dev/)
+web_modules/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Optional stylelint cache
+.stylelintcache
+
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# dotenv environment variable files
+.env
+.env.development.local
+.env.test.local
+.env.production.local
+.env.local
+
+# parcel-bundler cache (https://parceljs.org/)
+.cache
+.parcel-cache
+
+# Next.js build output
+.next
+out
+
+# Nuxt.js build / generate output
+.nuxt
+dist
+
+# Gatsby files
+.cache/
+# Comment in the public line in if your project uses Gatsby and not Next.js
+# https://nextjs.org/blog/next-9-1#public-directory-support
+# public
+
+# vuepress build output
+.vuepress/dist
+
+# vuepress v2.x temp and cache directory
+.temp
+.cache
+
+# vitepress build output
+**/.vitepress/dist
+
+# vitepress cache directory
+**/.vitepress/cache
+
+# Docusaurus cache and generated files
+.docusaurus
+
+# Serverless directories
+.serverless/
+
+# FuseBox cache
+.fusebox/
+
+# DynamoDB Local files
+.dynamodb/
+
+# TernJS port file
+.tern-port
+
+# Stores VSCode versions used for testing VSCode extensions
+.vscode-test
+
+# yarn v2
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
 
 ================
 File: Dockerfile
@@ -3856,6 +6231,21 @@ require('dotenv').config();
 const app = require('./src/app');
 const config = require('./src/config');
 const { logger } = require('./src/utils/logger');
+const { db } = require('./src/services/database.service');
+
+// Logging de variables de entorno (excluyendo datos sensibles)
+logger.info('Starting application with configuration', {
+  NODE_ENV: process.env.NODE_ENV || 'development',
+  PORT: process.env.PORT || 3100,
+  DB_HOST: process.env.DB_HOST || 'localhost',
+  DB_PORT: process.env.DB_PORT || 5432,
+  DB_NAME: process.env.DB_NAME || 'postgres',
+  DB_USER: process.env.DB_USER || 'postgres',
+  DB_SSL: process.env.DB_SSL || false,
+  CORS_ORIGIN: process.env.CORS_ORIGIN || '*',
+  ENABLE_API_KEY_AUTH: process.env.ENABLE_API_KEY_AUTH || true,
+  ENABLE_DOCS: process.env.ENABLE_DOCS || true,
+});
 
 // Gestión de errores no capturados
 process.on('uncaughtException', (error) => {
@@ -3879,6 +6269,7 @@ async function startServer() {
 
 📝 Documentación: http://localhost:${config.port}/api-docs
 🔍 Estado: http://localhost:${config.port}/api/health
+🔍 Ping (sin BD): http://localhost:${config.port}/api/ping
 
 Esta API está diseñada para uso administrativo y ofrece autenticación mediante API keys.
       `);
@@ -3887,9 +6278,18 @@ Esta API está diseñada para uso administrativo y ofrece autenticación mediant
     // Gestión de señales del sistema operativo
     const shutdown = async (signal) => {
       logger.info(`${signal} recibido. Cerrando servidor HTTP y conexiones a base de datos...`);
+      
+      // Intentar cerrar la conexión de BD primero
+      try {
+        await db.close();
+        logger.info('Conexiones de base de datos cerradas correctamente.');
+      } catch (err) {
+        logger.warn('Error al cerrar conexiones de base de datos:', err);
+      }
+      
+      // Luego cerrar el servidor HTTP
       server.close(() => {
         logger.info('Servidor HTTP cerrado.');
-        // Aquí podríamos cerrar otras conexiones como la base de datos
         process.exit(0);
       });
 

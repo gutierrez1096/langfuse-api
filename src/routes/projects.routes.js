@@ -5,8 +5,9 @@ const router = express.Router();
 const { validate, Joi, commonSchemas } = require('../middleware/validation.middleware');
 const projectsController = require('../controllers/projects.controller');
 const apiKeysController = require('../controllers/api-keys.controller');
+const projectMembershipsRoutes = require('./project-memberships.routes');
 const { NotFoundError } = require('../utils/errors');
-const { db } = require('../services/database.service'); // Fix: Import db directly
+const { db } = require('../services/database.service');
 
 // Esquemas de validación
 const schemas = {
@@ -50,6 +51,11 @@ const schemas = {
       .messages({
         'string.max': 'La nota no puede exceder {#limit} caracteres'
       }),
+    expiresAt: Joi.date().iso().min('now').optional()
+      .messages({
+        'date.base': 'Fecha de expiración inválida',
+        'date.min': 'La fecha de expiración debe ser futura'
+      })
   }),
 };
 
@@ -57,7 +63,6 @@ const schemas = {
 const checkProjectExists = async (req, res, next) => {
   try {
     const { id } = req.params;
-    // Fix: Use db.queryOne instead of dbService.queryOne
     const project = await db.queryOne(
       'SELECT org_id FROM projects WHERE id = $1 AND deleted_at IS NULL',
       [id]
@@ -113,5 +118,8 @@ router.post('/:id/api-keys',
   checkProjectExists,
   apiKeysController.createApiKey
 );
+
+// Usar rutas de membresías de proyecto
+router.use('/:projectId/members', projectMembershipsRoutes);
 
 module.exports = router;

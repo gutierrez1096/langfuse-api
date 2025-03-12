@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: Langfuse Admin API
   description: |
-    API de administración para Langfuse que permite gestionar organizaciones, proyectos y API keys.
+    API de administración para Langfuse que permite gestionar organizaciones, proyectos, usuarios y API keys.
     Esta API está diseñada para uso administrativo con autenticación mediante API key.
   version: 1.0.0
   contact:
@@ -106,6 +106,94 @@ components:
           format: date-time
           description: Fecha de última actualización
     
+    ProjectMember:
+      type: object
+      properties:
+        project_id:
+          type: string
+          description: ID del proyecto
+        user_id:
+          type: string
+          description: ID del usuario
+        role:
+          type: string
+          enum: [OWNER, ADMIN, MEMBER, VIEWER]
+          description: Rol del usuario en el proyecto
+        created_at:
+          type: string
+          format: date-time
+          description: Fecha de creación
+        updated_at:
+          type: string
+          format: date-time
+          description: Fecha de última actualización
+        name:
+          type: string
+          description: Nombre del usuario
+        email:
+          type: string
+          format: email
+          description: Email del usuario
+        image:
+          type: string
+          description: URL de imagen del usuario
+    
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          description: ID único del usuario
+        name:
+          type: string
+          description: Nombre del usuario
+        email:
+          type: string
+          format: email
+          description: Email del usuario
+        image:
+          type: string
+          description: URL de imagen del usuario
+        created_at:
+          type: string
+          format: date-time
+          description: Fecha de creación
+        updated_at:
+          type: string
+          format: date-time
+          description: Fecha de última actualización
+        admin:
+          type: boolean
+          description: Si el usuario es administrador global
+        feature_flags:
+          type: array
+          items:
+            type: string
+          description: Flags de funcionalidades habilitadas para el usuario
+    
+    UsersList:
+      type: object
+      properties:
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+        pagination:
+          type: object
+          properties:
+            total:
+              type: integer
+              description: Número total de usuarios
+            page:
+              type: integer
+              description: Página actual
+            limit:
+              type: integer
+              description: Límite de resultados por página
+            pages:
+              type: integer
+              description: Número total de páginas
+    
     ApiKey:
       type: object
       properties:
@@ -129,6 +217,10 @@ components:
         note:
           type: string
           description: Nota descriptiva (opcional)
+        expires_at:
+          type: string
+          format: date-time
+          description: Fecha de expiración (opcional)
     
     NewApiKey:
       allOf:
@@ -233,6 +325,246 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   
+  /users:
+    get:
+      summary: Listar usuarios
+      description: Obtiene todos los usuarios con paginación y búsqueda
+      operationId: getUsers
+      tags: [Users]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Término de búsqueda para nombre o email
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+          description: Límite de resultados por página
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+          description: Número de página
+      responses:
+        '200':
+          description: Lista de usuarios
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsersList'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    post:
+      summary: Crear usuario
+      description: Crea un nuevo usuario
+      operationId: createUser
+      tags: [Users]
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - email
+              properties:
+                name:
+                  type: string
+                  description: Nombre del usuario
+                email:
+                  type: string
+                  format: email
+                  description: Email del usuario
+                password:
+                  type: string
+                  description: Contraseña (opcional)
+                admin:
+                  type: boolean
+                  description: Si el usuario es administrador
+      responses:
+        '201':
+          description: Usuario creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Datos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Email ya registrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /users/{id}:
+    get:
+      summary: Obtener usuario
+      description: Obtiene un usuario por ID
+      operationId: getUserById
+      tags: [Users]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID del usuario
+      responses:
+        '200':
+          description: Datos del usuario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: Usuario no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    put:
+      summary: Actualizar usuario
+      description: Actualiza un usuario existente
+      operationId: updateUser
+      tags: [Users]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID del usuario
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Nombre del usuario
+                email:
+                  type: string
+                  format: email
+                  description: Email del usuario
+                image:
+                  type: string
+                  description: URL de imagen del usuario
+                feature_flags:
+                  type: array
+                  items:
+                    type: string
+                  description: Flags de funcionalidades
+                admin:
+                  type: boolean
+                  description: Si el usuario es administrador
+      responses:
+        '200':
+          description: Usuario actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Datos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Usuario no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    delete:
+      summary: Eliminar usuario
+      description: Elimina un usuario (verificando dependencias)
+      operationId: deleteUser
+      tags: [Users]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID del usuario
+      responses:
+        '200':
+          description: Usuario eliminado correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Mensaje de confirmación
+        '400':
+          description: No se puede eliminar (tiene dependencias)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Usuario no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
   /organizations:
     get:
       summary: Listar organizaciones
@@ -264,7 +596,6 @@ paths:
       tags: [Organizations]
       security:
         - ApiKeyAuth: []
-        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -309,7 +640,6 @@ paths:
       tags: [Organizations]
       security:
         - ApiKeyAuth: []
-        - BearerAuth: []
       parameters:
         - name: id
           in: path
@@ -344,7 +674,6 @@ paths:
       tags: [Organizations]
       security:
         - ApiKeyAuth: []
-        - BearerAuth: []
       parameters:
         - name: id
           in: path
@@ -398,7 +727,6 @@ paths:
       tags: [Organization Members]
       security:
         - ApiKeyAuth: []
-        - BearerAuth: []
       parameters:
         - name: id
           in: path
@@ -435,7 +763,6 @@ paths:
       tags: [Organization Members]
       security:
         - ApiKeyAuth: []
-        - BearerAuth: []
       parameters:
         - name: id
           in: path
@@ -491,12 +818,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-        '403':
-          description: Sin permisos suficientes
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
   
   /organizations/{orgId}/members/{userId}:
     put:
@@ -506,7 +827,6 @@ paths:
       tags: [Organization Members]
       security:
         - ApiKeyAuth: []
-        - BearerAuth: []
       parameters:
         - name: orgId
           in: path
@@ -558,12 +878,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-        '403':
-          description: Sin permisos suficientes
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
     
     delete:
       summary: Eliminar miembro
@@ -572,7 +886,6 @@ paths:
       tags: [Organization Members]
       security:
         - ApiKeyAuth: []
-        - BearerAuth: []
       parameters:
         - name: orgId
           in: path
@@ -615,12 +928,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-        '403':
-          description: Sin permisos suficientes
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
   
   /projects:
     get:
@@ -630,7 +937,6 @@ paths:
       tags: [Projects]
       security:
         - ApiKeyAuth: []
-        - BearerAuth: []
       parameters:
         - name: orgId
           in: query
@@ -660,7 +966,6 @@ paths:
       tags: [Projects]
       security:
         - ApiKeyAuth: []
-        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -702,12 +1007,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-        '403':
-          description: Sin permisos suficientes
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
   
   /projects/{id}:
     get:
@@ -717,7 +1016,6 @@ paths:
       tags: [Projects]
       security:
         - ApiKeyAuth: []
-        - BearerAuth: []
       parameters:
         - name: id
           in: path
@@ -752,7 +1050,6 @@ paths:
       tags: [Projects]
       security:
         - ApiKeyAuth: []
-        - BearerAuth: []
       parameters:
         - name: id
           in: path
@@ -797,12 +1094,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-        '403':
-          description: Sin permisos suficientes
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
     
     delete:
       summary: Eliminar proyecto
@@ -811,7 +1102,6 @@ paths:
       tags: [Projects]
       security:
         - ApiKeyAuth: []
-        - BearerAuth: []
       parameters:
         - name: id
           in: path
@@ -842,8 +1132,333 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-        '403':
-          description: Sin permisos suficientes
+  
+  /projects/{projectId}/members:
+    get:
+      summary: Listar miembros del proyecto
+      description: Obtiene todos los miembros de un proyecto
+      operationId: getProjectMembers
+      tags: [Project Members]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID del proyecto
+      responses:
+        '200':
+          description: Lista de miembros
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProjectMember'
+        '404':
+          description: Proyecto no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    post:
+      summary: Añadir miembro al proyecto
+      description: Añade un usuario a un proyecto
+      operationId: addProjectMember
+      tags: [Project Members]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID del proyecto
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId
+              properties:
+                userId:
+                  type: string
+                  description: ID del usuario a añadir
+                role:
+                  type: string
+                  enum: [OWNER, ADMIN, MEMBER, VIEWER]
+                  default: VIEWER
+                  description: Rol del usuario en el proyecto
+      responses:
+        '201':
+          description: Usuario añadido al proyecto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectMember'
+        '400':
+          description: Datos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Proyecto o usuario no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: El usuario ya es miembro de este proyecto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /projects/{projectId}/members/batch:
+    post:
+      summary: Añadir múltiples miembros al proyecto
+      description: Añade varios usuarios a un proyecto en una sola operación
+      operationId: addBatchProjectMembers
+      tags: [Project Members]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID del proyecto
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - members
+              properties:
+                members:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - userId
+                    properties:
+                      userId:
+                        type: string
+                        description: ID del usuario
+                      role:
+                        type: string
+                        enum: [OWNER, ADMIN, MEMBER, VIEWER]
+                        default: VIEWER
+                        description: Rol del usuario
+      responses:
+        '201':
+          description: Resultado de la operación por lotes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ProjectMember'
+                    description: Miembros añadidos correctamente
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId:
+                          type: string
+                        error:
+                          type: string
+                    description: Errores al añadir miembros
+        '400':
+          description: Datos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Proyecto no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /projects/{projectId}/members/{userId}:
+    get:
+      summary: Obtener miembro del proyecto
+      description: Obtiene detalles de un miembro específico del proyecto
+      operationId: getProjectMember
+      tags: [Project Members]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID del proyecto
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID del usuario
+      responses:
+        '200':
+          description: Datos del miembro
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectMember'
+        '404':
+          description: Membresía no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    put:
+      summary: Actualizar miembro del proyecto
+      description: Actualiza el rol de un miembro en el proyecto
+      operationId: updateProjectMember
+      tags: [Project Members]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID del proyecto
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID del usuario
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - role
+              properties:
+                role:
+                  type: string
+                  enum: [OWNER, ADMIN, MEMBER, VIEWER]
+                  description: Nuevo rol del usuario
+      responses:
+        '200':
+          description: Rol actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectMember'
+        '400':
+          description: Datos inválidos o intento de cambiar el rol del último propietario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Membresía no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    delete:
+      summary: Eliminar miembro del proyecto
+      description: Elimina un miembro del proyecto
+      operationId: removeProjectMember
+      tags: [Project Members]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID del proyecto
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID del usuario
+      responses:
+        '200':
+          description: Miembro eliminado correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Mensaje de confirmación
+        '400':
+          description: No se puede eliminar al último propietario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Membresía no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
           content:
             application/json:
               schema:
@@ -857,7 +1472,6 @@ paths:
       tags: [API Keys]
       security:
         - ApiKeyAuth: []
-        - BearerAuth: []
       parameters:
         - name: id
           in: path
@@ -886,12 +1500,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-        '403':
-          description: Sin permisos suficientes
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
     
     post:
       summary: Crear API key
@@ -900,7 +1508,6 @@ paths:
       tags: [API Keys]
       security:
         - ApiKeyAuth: []
-        - BearerAuth: []
       parameters:
         - name: id
           in: path
@@ -917,6 +1524,10 @@ paths:
                 note:
                   type: string
                   description: Descripción opcional
+                expiresAt:
+                  type: string
+                  format: date-time
+                  description: Fecha de expiración opcional
       responses:
         '201':
           description: API key creada
@@ -936,14 +1547,94 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-        '403':
-          description: Sin permisos suficientes
+  
+  /api-keys/expired:
+    get:
+      summary: Listar API keys expiradas
+      description: Obtiene todas las API keys que han expirado
+      operationId: getExpiredApiKeys
+      tags: [API Keys]
+      security:
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Lista de API keys expiradas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ApiKey'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    delete:
+      summary: Eliminar API keys expiradas
+      description: Elimina todas las API keys expiradas
+      operationId: cleanupExpiredApiKeys
+      tags: [API Keys]
+      security:
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: API keys expiradas eliminadas correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Mensaje de confirmación
+                  count:
+                    type: integer
+                    description: Número de API keys eliminadas
+        '401':
+          description: No autorizado
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
   
   /api-keys/{id}:
+    get:
+      summary: Obtener API key
+      description: Obtiene detalles de una API key específica
+      operationId: getApiKeyById
+      tags: [API Keys]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID de la API key
+      responses:
+        '200':
+          description: Detalles de la API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKey'
+        '404':
+          description: API key no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
     delete:
       summary: Eliminar API key
       description: Elimina una API key
@@ -951,7 +1642,6 @@ paths:
       tags: [API Keys]
       security:
         - ApiKeyAuth: []
-        - BearerAuth: []
       parameters:
         - name: id
           in: path
@@ -982,8 +1672,149 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-        '403':
-          description: Sin permisos suficientes
+  
+  /api-keys/{id}/regenerate:
+    post:
+      summary: Regenerar API key
+      description: Regenera una API key existente
+      operationId: regenerateApiKey
+      tags: [API Keys]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID de la API key
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                expiresAt:
+                  type: string
+                  format: date-time
+                  description: Nueva fecha de expiración (opcional)
+      responses:
+        '200':
+          description: API key regenerada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NewApiKey'
+        '404':
+          description: API key no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /api-keys/{id}/expiration:
+    put:
+      summary: Actualizar expiración de API key
+      description: Actualiza la fecha de expiración de una API key
+      operationId: updateApiKeyExpiration
+      tags: [API Keys]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID de la API key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - expiresAt
+              properties:
+                expiresAt:
+                  type: string
+                  format: date-time
+                  nullable: true
+                  description: Nueva fecha de expiración (null para eliminar)
+      responses:
+        '200':
+          description: Expiración actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKey'
+        '400':
+          description: Datos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: API key no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /api-keys/{id}/note:
+    put:
+      summary: Actualizar nota de API key
+      description: Actualiza la nota descriptiva de una API key
+      operationId: updateApiKeyNote
+      tags: [API Keys]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID de la API key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - note
+              properties:
+                note:
+                  type: string
+                  description: Nueva nota descriptiva
+      responses:
+        '200':
+          description: Nota actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKey'
+        '404':
+          description: API key no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: No autorizado
           content:
             application/json:
               schema:
@@ -996,8 +1827,12 @@ tags:
     description: Gestión de miembros de organizaciones
   - name: Projects
     description: Gestión de proyectos
+  - name: Project Members
+    description: Gestión de miembros de proyectos
   - name: API Keys
     description: Gestión de API keys
+  - name: Users
+    description: Gestión de usuarios
   - name: Monitoring
     description: Endpoints de monitoreo y salud del servicio
 
